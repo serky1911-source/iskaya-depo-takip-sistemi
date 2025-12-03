@@ -177,7 +177,7 @@ def yapay_zekaya_sor(model: SoruModel):
         {model.soru}
         """
         
-        # 3. Modele gönder
+        # 3. Modele gönder (Flash Model - Hızlı ve Yüksek Limitli)
         model_ai = genai.GenerativeModel('gemini-1.5-flash')
         response = model_ai.generate_content(prompt)
         
