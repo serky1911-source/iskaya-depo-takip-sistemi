@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depo Takip Pro V5.1 (Diplomatik)</title>
+    <style>
+        :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --light: #ecf0f1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f3; margin: 0; padding: 20px; color: #333; }
+        
+        /* GİRİŞ EKRANI */
+        #LoginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .login-box h2 { color: var(--primary); margin-bottom: 20px; }
+
+        /* ANA EKRAN */
+        #Dashboard { display: none; }
+        
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); border-bottom: 3px solid var(--accent); padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
+        h2 { color: var(--secondary); font-size: 1.2rem; margin-top: 20px; border-left: 5px solid var(--accent); padding-left: 10px; }
+        
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        input:focus, select:focus { border-color: var(--accent); outline: none; }
+        button { background-color: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #2980b9; transform: translateY(-2px); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-logout { background-color: var(--danger); width: auto; font-size: 0.8rem; padding: 8px 15px; }
+
+        /* ÖZEL ETİKETLER */
+        .badge-manager { background-color: #e1f5fe; color: #0277bd; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; border: 1px solid #81d4fa; display: none; }
+        
+        /* GİZLENECEK ALANLAR */
+        .admin-only { /* JS ile kontrol edilecek */ }
+
+        .tab { overflow: hidden; background-color: var(--primary); border-radius: 8px 8px 0 0; display: flex; }
+        .tab button { background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 15px 20px; transition: 0.3s; color: white; width: auto; flex-grow: 1; border-radius: 0; margin: 0; }
+        .tab button:hover { background-color: var(--secondary); }
+        .tab button.active { background-color: var(--accent); }
+        .tabcontent { display: none; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px; animation: fadeEffect 0.5s; background: #fff; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: var(--primary); color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .kritik-stok { background-color: #ffcccc !important; color: #a00; font-weight: bold; }
+        .search-box { padding: 10px; width: 100%; border: 2px solid var(--accent); margin-bottom: 10px; }
+
+        @keyframes fadeEffect { from {opacity: 0;} to {opacity: 1;} }
+        .flex-row { display: flex; gap: 10px; }
+        .flex-col { flex: 1; }
+    </style>
+</head>
+<body>
+
+<div id="LoginScreen">
+    <div class="login-box">
+        <h2>🔒 Güvenli Giriş</h2>
+        <input type="text" id="kullaniciAdi" placeholder="Kullanıcı Adı">
+        <input type="password" id="sifre" placeholder="Şifre">
+        <button onclick="girisYap()">Giriş Yap</button>
+        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+            Demo Hesaplar:<br>Admin: <b>admin / admin123</b><br>Müdür: <b>mudur / mudur123</b>
+        </p>
+    </div>
+</div>
+
+<div id="Dashboard">
+    <div class="container">
+        <h1>
+            <span>🏭 Depo Yönetim Paneli <span id="viewBadge" class="badge-manager">👁️ Yönetici Modu</span></span>
+            <button class="btn-logout" onclick="cikisYap()">Çıkış (<span id="aktifKullanici"></span>)</button>
+        </h1>
+
+        <div class="tab">
+            <button class="tablinks" onclick="openTab(event, 'Tanimlamalar')" id="defaultOpen">🛠️ Tanımlamalar</button>
+            <button class="tablinks" onclick="openTab(event, 'StokIslem')">📦 Stok Giriş/Çıkış</button>
+            <button class="tablinks" onclick="openTab(event, 'TransferZimmet')">🚚 Transfer & Zimmet</button>
+            <button class="tablinks" onclick="openTab(event, 'Raporlar')">📊 Raporlar</button>
+        </div>
+
+        <div id="Tanimlamalar" class="tabcontent">
+            <div id="mudurDashboard1" style="display:none; text-align:center; padding: 20px;">
+                <h3>📋 Sistem Kayıtları</h3>
+                <p>Aşağıdaki butonlara tıklayarak mevcut kayıtları inceleyebilirsiniz.</p>
+                <div class="flex-row">
+                     <button style="background:#34495e;" onclick="listeGoster('bolum')">🏢 Bölüm Listesi</button>
+                     <button style="background:#34495e;" onclick="listeGoster('personel')">👷 Personel Listesi</button>
+                     <button style="background:#34495e;" onclick="listeGoster('urun')">📦 Ürün Listesi</button>
+                </div>
+                <div id="basitListe" style="margin-top:15px; text-align:left; max-height:300px; overflow-y:auto; border:1px solid #ddd; padding:15px; border-radius:5px; background:#f9f9f9;">
+                    <i>Görüntülemek istediğiniz listeyi seçiniz...</i>
+                </div>
+            </div>
+
+            <div class="admin-only">
+                <div class="flex-row">
+                    <div class="flex-col">
+                        <h2>Bölüm/Depo Ekle</h2>
+                        <input type="text" id="yeniBolumAdi" placeholder="Örn: Kaynak Atölyesi">
+                        <button onclick="bolumEkle()">Bölüm Kaydet</button>
+                    </div>
+                    <div class="flex-col">
+                        <h2>Personel Ekle</h2>
+                        <input type="text" id="yeniPersonelAdi" placeholder="Örn: Ahmet Yılmaz">
+                        <button onclick="personelEkle()">Personel Kaydet</button>
+                    </div>
+                </div>
+                <hr>
+                <h2>Ürün Tanımla</h2>
+                <div class="flex-row">
+                    <input type="text" id="yeniUrunAdi" placeholder="Ürün Adı">
+                    <input type="text" id="yeniSku" placeholder="SKU/Barkod">
+                    <input type="text" id="yeniBirim" placeholder="Birim" style="width: 30%;">
+                </div>
+                <div class="flex-row">
+                    <select id="yeniTur">
+                        <option value="Sarf">Sarf Malzeme</option>
+                        <option value="Demirbaş">Demirbaş</option>
+                    </select>
+                    <input type="number" id="yeniGuvenlik" placeholder="Güvenlik Stoğu">
+                    <button onclick="urunEkle()">Ürünü Sisteme İşle</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="StokIslem" class="tabcontent">
+            <div class="admin-only">
+                <h2>Mal Kabul veya Tüketim</h2>
+                <label>İşlem Türü:</label>
+                <select id="islemTuru">
+                    <option value="giris">Mal Kabul (Giriş)</option>
+                    <option value="cikis">Tüketim (Çıkış)</option>
+                </select>
+                <div class="flex-row">
+                    <select id="islemBolumId" class="flex-col"><option>Bölüm Seçiniz...</option></select>
+                    <select id="islemUrunSku" class="flex-col"><option>Ürün Seçiniz...</option></select>
+                </div>
+                <input type="number" id="islemMiktar" placeholder="Miktar">
+                <input type="text" id="islemBelge" placeholder="Belge No / Açıklama">
+                <button onclick="stokIslemYap()">İşlemi Onayla</button>
+            </div>
+
+            <div id="mudurDashboard2" style="display:none; text-align:center; padding:40px;">
+                <h2 style="color:#7f8c8d;">📦 Stok Operasyonları</h2>
+                <p>Bu ekran depo sorumlusu tarafından veri girişi (Mal Kabul / Sevkiyat) yapılması içindir.</p>
+                <p>Güncel stok hareketlerini <b>"Raporlar"</b> sekmesinden canlı olarak takip edebilirsiniz.</p>
+                <button onclick="openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar')" style="width:50%; margin-top:20px;">📊 Raporlara Git</button>
+            </div>
+        </div>
+
+        <div id="TransferZimmet" class="tabcontent">
+            <div class="admin-only">
+                <div class="flex-row">
+                    <div class="flex-col" style="border-right: 1px solid #ddd; padding-right: 15px;">
+                        <h2 style="color: var(--accent);">🔄 Depolar Arası Transfer</h2>
+                        <select id="trUrun"><option>Ürün Seç...</option></select>
+                        <label>Nereden?</label>
+                        <select id="trCikisBolum"><option>Kaynak Depo...</option></select>
+                        <label>Nereye?</label>
+                        <select id="trGirisBolum"><option>Hedef Depo...</option></select>
+                        <input type="number" id="trMiktar" placeholder="Miktar">
+                        <button onclick="transferYap()">Transfer Et</button>
+                    </div>
+                    <div class="flex-col" style="padding-left: 15px;">
+                        <h2 style="color: var(--danger);">👷 Zimmetleme</h2>
+                        <select id="zimUrun"><option>Ürün Seç...</option></select>
+                        <select id="zimBolum"><option>Depo Seç...</option></select>
+                        <select id="zimPersonel"><option>Personel Seç...</option></select>
+                        <input type="number" id="zimMiktar" value="1" placeholder="Adet">
+                        <button class="btn-danger" onclick="zimmetVer()">Zimmetle</button>
+                    </div>
+                </div>
+            </div>
+
+             <div id="mudurDashboard3" style="display:none; text-align:center; padding:40px;">
+                <h2 style="color:#7f8c8d;">🔄 Transfer ve Zimmet Operasyonları</h2>
+                <p>Bu bölümdeki işlemler yetkili depo personeli tarafından yürütülmektedir.</p>
+                <p>Mevcut zimmet durumlarını incelemek için aşağıdaki butonu kullanabilirsiniz.</p>
+                <button onclick="zimmetRaporuGetir(); openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar')" style="width:50%; margin-top:20px; background-color:var(--secondary);">👷 Zimmet Listesini İncele</button>
+            </div>
+        </div>
+
+        <div id="Raporlar" class="tabcontent">
+            <div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>🔎 Detaylı Sorgulama</h3>
+                <div class="flex-row">
+                    <div class="flex-col"><label>Başlangıç:</label><input type="date" id="rapBaslangic"></div>
+                    <div class="flex-col"><label>Bitiş:</label><input type="date" id="rapBitis"></div>
+                    <div class="flex-col"><label>Depo:</label><select id="rapBolum"><option value="0">Tüm Depolar</option></select></div>
+                    <div class="flex-col" style="display: flex; align-items: flex-end;"><button onclick="hareketRaporuGetir()" style="background-color: var(--primary);">📜 Hareket Dökümü</button></div>
+                </div>
+            </div>
+            <div class="flex-row">
+                <button onclick="stokRaporuGetir()">📦 Anlık Stok</button>
+                <button onclick="zimmetRaporuGetir()" style="background-color: var(--secondary);">👷 Zimmet Listesi</button>
+            </div>
+            <input type="text" id="tabloArama" class="search-box" onkeyup="tabloFiltrele()" placeholder="Tabloda ara...">
+            <table id="raporTablosu"><thead></thead><tbody></tbody></table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    async function girisYap() {
+        const kAdi = document.getElementById('kullaniciAdi').value;
+        const sifre = document.getElementById('sifre').value;
+
+        try {
+            const response = await fetch(`${API_URL}/giris`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ kullanici_adi: kAdi, sifre: sifre })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                document.getElementById('LoginScreen').style.display = 'none';
+                document.getElementById('Dashboard').style.display = 'block';
+                document.getElementById('aktifKullanici').innerText = data.ad;
+
+                // --- DİPLOMATİK MOD AYARLARI ---
+                if (data.rol === 'izleyici') {
+                    // 1. Yönetici Rozetini Göster
+                    document.getElementById('viewBadge').style.display = 'inline-block';
+
+                    // 2. Veri Giriş Alanlarını Gizle (Sessizce)
+                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+                    
+                    // 3. Müdür İçin Hazırlanan Özel Bilgi Ekranlarını Aç
+                    document.getElementById('mudurDashboard1').style.display = 'block';
+                    document.getElementById('mudurDashboard2').style.display = 'block';
+                    document.getElementById('mudurDashboard3').style.display = 'block';
+                    
+                    // 4. Doğrudan Raporlar Sekmesini Aç
+                    openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar');
+                } else {
+                    document.getElementById("defaultOpen").click();
+                }
+
+                sayfaYukle();
+            } else {
+                alert("Hatalı Kullanıcı Adı veya Şifre!");
+            }
+        } catch (error) {
+            alert("Sunucuya bağlanılamadı! main.py açık mı?");
+        }
+    }
+
+    function cikisYap() { location.reload(); }
+
+    async function listeGoster(tip) {
+        let url = '';
+        if(tip==='bolum') url='/bolumler/listele';
+        if(tip==='personel') url='/personel/listele';
+        if(tip==='urun') url='/urunler/listele';
+        
+        const data = await getData(url);
+        let html = "<ul style='list-style-type:circle; padding-left:20px;'>";
+        data.forEach(item => {
+            if(tip==='bolum') html += `<li><b>${item.bolum_adi}</b></li>`;
+            if(tip==='personel') html += `<li>${item.ad_soyad}</li>`;
+            if(tip==='urun') html += `<li>${item.urun_adi} <span style='color:#777; font-size:0.8em'>(${item.SKU})</span></li>`;
+        });
+        html += "</ul>";
+        document.getElementById('basitListe').innerHTML = html;
+    }
+
+    // --- STANDART FONKSİYONLAR ---
+    async function postData(url, data) {
+        const response = await fetch(`${API_URL}${url}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        if (response.ok) { alert("İşlem Başarılı! ✅"); sayfaYukle(); } else { const err = await response.json(); alert("HATA: " + err.detail); }
+    }
+    async function getData(url) { const response = await fetch(`${API_URL}${url}`); return await response.json(); }
+
+    function bolumEkle() { postData('/bolumler/ekle', { bolum_adi: document.getElementById('yeniBolumAdi').value }); }
+    function personelEkle() { postData('/personel/ekle', { ad_soyad: document.getElementById('yeniPersonelAdi').value }); }
+    function urunEkle() { postData('/urunler/ekle', { urun_adi: document.getElementById('yeniUrunAdi').value, sku: document.getElementById('yeniSku').value, birim: document.getElementById('yeniBirim').value, tur: document.getElementById('yeniTur').value, guvenlik_stogu: parseInt(document.getElementById('yeniGuvenlik').value) }); }
+    function stokIslemYap() { const tur = document.getElementById('islemTuru').value; postData(`/stok/${tur}`, { sku: document.getElementById('islemUrunSku').value, bolum_id: parseInt(document.getElementById('islemBolumId').value), miktar: parseFloat(document.getElementById('islemMiktar').value), belge_no: document.getElementById('islemBelge').value }); }
+    function transferYap() { postData('/stok/transfer', { sku: document.getElementById('trUrun').value, cikis_bolum_id: parseInt(document.getElementById('trCikisBolum').value), giris_bolum_id: parseInt(document.getElementById('trGirisBolum').value), miktar: parseFloat(document.getElementById('trMiktar').value) }); }
+    function zimmetVer() { postData('/zimmet/ver', { sku: document.getElementById('zimUrun').value, personel_id: parseInt(document.getElementById('zimPersonel').value), bolum_id: parseInt(document.getElementById('zimBolum').value), miktar: parseFloat(document.getElementById('zimMiktar').value) }); }
+
+    async function hareketRaporuGetir() {
+        const veri = { baslangic_tarihi: document.getElementById('rapBaslangic').value, bitis_tarihi: document.getElementById('rapBitis').value, bolum_id: parseInt(document.getElementById('rapBolum').value) };
+        const data = await (await fetch(`${API_URL}/rapor/hareketler`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(veri) })).json();
+        const tbody = document.querySelector('#raporTablosu tbody'); document.querySelector('#raporTablosu thead').innerHTML = `<tr><th>Tarih</th><th>İşlem</th><th>Depo</th><th>Ürün</th><th>Miktar</th><th>Açıklama</th></tr>`; tbody.innerHTML = "";
+        if(data.length === 0) { tbody.innerHTML = "<tr><td colspan='6' style='text-align:center'>Kayıt yok.</td></tr>"; return; }
+        data.forEach(row => { const renk = row.islem_tipi === 'GİRİŞ' ? '#eafaf1' : '#fdedec'; tbody.innerHTML += `<tr style="background-color:${renk}"><td>${new Date(row.tarih).toLocaleString('tr-TR')}</td><td>${row.islem_tipi}</td><td>${row.bolum_adi}</td><td>${row.urun_adi}</td><td>${row.miktar}</td><td>${row.aciklama}</td></tr>`; });
+    }
+    async function stokRaporuGetir() {
+        const data = await getData('/rapor/genel-stok'); const tbody = document.querySelector('#raporTablosu tbody'); document.querySelector('#raporTablosu thead').innerHTML = `<tr><th>Bölüm</th><th>Ürün</th><th>SKU</th><th>Tip</th><th>Stok</th><th>Uyarı</th></tr>`; tbody.innerHTML = "";
+        data.forEach(row => { const cls = row.uyari ? 'kritik-stok' : ''; tbody.innerHTML += `<tr class="${cls}"><td>${row.bolum_adi}</td><td>${row.urun_adi}</td><td>${row.SKU}</td><td>${row.tur}</td><td>${row.mevcut_stok}</td><td>${row.uyari ? '🚨 KRİTİK' : '✅'}</td></tr>`; });
+    }
+    async function zimmetRaporuGetir() {
+        const data = await getData('/rapor/zimmetler'); const tbody = document.querySelector('#raporTablosu tbody'); document.querySelector('#raporTablosu thead').innerHTML = `<tr><th>Tarih</th><th>Personel</th><th>Ürün</th><th>SKU</th><th>Adet</th></tr>`; tbody.innerHTML = "";
+        data.forEach(row => { tbody.innerHTML += `<tr><td>${new Date(row.verilis_tarihi).toLocaleString('tr-TR')}</td><td>${row.ad_soyad}</td><td>${row.urun_adi}</td><td>${row.SKU}</td><td>${row.miktar}</td></tr>`; });
+    }
+    function tabloFiltrele() { var filter = document.getElementById("tabloArama").value.toUpperCase(); var tr = document.getElementById("raporTablosu").getElementsByTagName("tr"); for (var i = 0; i < tr.length; i++) { if (tr[i].innerText.toUpperCase().indexOf(filter) > -1) tr[i].style.display = ""; else if(i!==0) tr[i].style.display = "none"; } }
+
+    async function sayfaYukle() {
+        const today = new Date().toISOString().split('T')[0]; document.getElementById('rapBaslangic').value = today; document.getElementById('rapBitis').value = today;
+        const bolumler = await getData('/bolumler/listele'); const urunler = await getData('/urunler/listele'); const personeller = await getData('/personel/listele');
+        const setOpts = (id, data, valField, textField, defText) => { const el = document.getElementById(id); if(!el) return; el.innerHTML = `<option value="">${defText}</option>`; data.forEach(d => el.innerHTML += `<option value="${d[valField]}">${d[textField]}</option>`); };
+        setOpts('islemBolumId', bolumler, 'bolum_id', 'bolum_adi', 'Bölüm Seç...'); setOpts('trCikisBolum', bolumler, 'bolum_id', 'bolum_adi', 'Bölüm Seç...'); setOpts('trGirisBolum', bolumler, 'bolum_id', 'bolum_adi', 'Bölüm Seç...'); setOpts('zimBolum', bolumler, 'bolum_id', 'bolum_adi', 'Bölüm Seç...');
+        setOpts('islemUrunSku', urunler, 'SKU', 'urun_adi', 'Ürün Seç...'); setOpts('trUrun', urunler, 'SKU', 'urun_adi', 'Ürün Seç...'); setOpts('zimUrun', urunler, 'SKU', 'urun_adi', 'Ürün Seç...');
+        setOpts('zimPersonel', personeller, 'personel_id', 'ad_soyad', 'Personel Seç...');
+        const rapBolum = document.getElementById('rapBolum'); rapBolum.innerHTML = '<option value="0">Tüm Depolar</option>'; bolumler.forEach(b => rapBolum.innerHTML += `<option value="${b.bolum_id}">${b.bolum_adi}</option>`);
+    }
+    function openTab(evt, tabName) { var i, tabcontent, tablinks; tabcontent = document.getElementsByClassName("tabcontent"); for (i = 0; i < tabcontent.length; i++) { tabcontent[i].style.display = "none"; } tablinks = document.getElementsByClassName("tablinks"); for (i = 0; i < tablinks.length; i++) { tablinks[i].className = tablinks[i].className.replace(" active", ""); } document.getElementById(tabName).style.display = "block"; if(evt.currentTarget) evt.currentTarget.className += " active"; }
+</script>
+
+</body>
+</html>
