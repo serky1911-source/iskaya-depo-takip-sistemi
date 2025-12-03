@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depo Takip Pro V5.1 (Diplomatik)</title>
+    <title>Depo Takip Pro V6.0 (AI Edition)</title>
     <style>
-        :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --light: #ecf0f1; }
+        :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --light: #ecf0f1; --ai: #673ab7; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f3; margin: 0; padding: 20px; color: #333; }
         
         /* GİRİŞ EKRANI */
@@ -30,15 +30,17 @@
         /* ÖZEL ETİKETLER */
         .badge-manager { background-color: #e1f5fe; color: #0277bd; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; border: 1px solid #81d4fa; display: none; }
         
-        /* GİZLENECEK ALANLAR (Düzeltildi) */
-        .admin-only { display: block; /* Hata vermemesi için varsayılan değer atadık */ }
+        /* GİZLENECEK ALANLAR */
+        .admin-only { display: block; }
 
+        /* SEKMELER */
         .tab { overflow: hidden; background-color: var(--primary); border-radius: 8px 8px 0 0; display: flex; }
         .tab button { background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 15px 20px; transition: 0.3s; color: white; width: auto; flex-grow: 1; border-radius: 0; margin: 0; }
         .tab button:hover { background-color: var(--secondary); }
         .tab button.active { background-color: var(--accent); }
+        
+        /* TABLO */
         .tabcontent { display: none; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px; animation: fadeEffect 0.5s; background: #fff; }
-
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background-color: var(--primary); color: white; }
@@ -77,6 +79,7 @@
             <button class="tablinks" onclick="openTab(event, 'StokIslem')">📦 Stok Giriş/Çıkış</button>
             <button class="tablinks" onclick="openTab(event, 'TransferZimmet')">🚚 Transfer & Zimmet</button>
             <button class="tablinks" onclick="openTab(event, 'Raporlar')">📊 Raporlar</button>
+            <button class="tablinks" onclick="openTab(event, 'AiAsistan')" style="background-color: var(--ai);">🤖 Depo AI</button>
         </div>
 
         <div id="Tanimlamalar" class="tabcontent">
@@ -198,11 +201,30 @@
             <input type="text" id="tabloArama" class="search-box" onkeyup="tabloFiltrele()" placeholder="Tabloda ara...">
             <table id="raporTablosu"><thead></thead><tbody></tbody></table>
         </div>
+
+        <div id="AiAsistan" class="tabcontent">
+            <div style="text-align: center; padding: 20px;">
+                <h2 style="color: var(--ai);">🤖 Yapay Zeka Depo Asistanı</h2>
+                <p>Depodaki durum hakkında her şeyi bana sorabilirsiniz.</p>
+                <p style="font-size: 0.9em; color: #666;">(Örn: "Elimizde kaç tane matkap var?", "Ahmet Usta'da ne zimmetli?", "Kaynak atölyesi durumu ne?")</p>
+                
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <input type="text" id="aiSoru" placeholder="Sorunuzu buraya yazın..." style="padding: 15px; border: 2px solid var(--ai); width: 100%; border-radius: 5px;">
+                    <br><br>
+                    <button onclick="aiSor()" style="background-color: var(--ai); padding: 15px; width: 100%;">🚀 Gönder</button>
+                </div>
+
+                <div id="aiCevapKutusu" style="display:none; margin-top: 20px; padding: 20px; background: #f3e5f5; border-radius: 8px; border-left: 5px solid var(--ai); text-align: left;">
+                    <b style="color: var(--ai);">Gemini Cevaplıyor:</b>
+                    <p id="aiCevapText" style="margin-top: 10px; white-space: pre-wrap;">...</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
-    // BULUT İÇİN BOŞ BIRAK (Otomatik algılar)
     const API_URL = "";
 
     async function girisYap() {
@@ -223,20 +245,12 @@
                 document.getElementById('Dashboard').style.display = 'block';
                 document.getElementById('aktifKullanici').innerText = data.ad;
 
-                // --- DİPLOMATİK MOD AYARLARI ---
                 if (data.rol === 'izleyici') {
-                    // 1. Yönetici Rozetini Göster
                     document.getElementById('viewBadge').style.display = 'inline-block';
-
-                    // 2. Veri Giriş Alanlarını Gizle (Sessizce)
                     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-                    
-                    // 3. Müdür İçin Hazırlanan Özel Bilgi Ekranlarını Aç
                     document.getElementById('mudurDashboard1').style.display = 'block';
                     document.getElementById('mudurDashboard2').style.display = 'block';
                     document.getElementById('mudurDashboard3').style.display = 'block';
-                    
-                    // 4. Doğrudan Raporlar Sekmesini Aç
                     openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar');
                 } else {
                     document.getElementById("defaultOpen").click();
@@ -247,7 +261,7 @@
                 alert("Hatalı Kullanıcı Adı veya Şifre!");
             }
         } catch (error) {
-            alert("Sunucuya bağlanılamadı! main.py açık mı?");
+            alert("Sunucuya bağlanılamadı!");
         }
     }
 
@@ -270,7 +284,30 @@
         document.getElementById('basitListe').innerHTML = html;
     }
 
-    // --- STANDART FONKSİYONLAR ---
+    // --- YAPAY ZEKA SORGULAMA ---
+    async function aiSor() {
+        const soru = document.getElementById('aiSoru').value;
+        if(!soru) return alert("Lütfen bir soru yazın!");
+        
+        const cevapKutu = document.getElementById('aiCevapKutusu');
+        const cevapText = document.getElementById('aiCevapText');
+        
+        cevapKutu.style.display = 'block';
+        cevapText.innerText = "🤔 Düşünüyorum... Veritabanı inceleniyor...";
+        
+        try {
+            const response = await fetch(`${API_URL}/ai/sor`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ soru: soru })
+            });
+            const data = await response.json();
+            cevapText.innerText = data.cevap;
+        } catch (err) {
+            cevapText.innerText = "Hata oluştu: " + err;
+        }
+    }
+
     async function postData(url, data) {
         const response = await fetch(`${API_URL}${url}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
         if (response.ok) { alert("İşlem Başarılı! ✅"); sayfaYukle(); } else { const err = await response.json(); alert("HATA: " + err.detail); }
