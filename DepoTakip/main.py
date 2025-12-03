@@ -43,29 +43,25 @@ def get_db_connection():
         print("DB Hatası:", e)
         raise HTTPException(status_code=500, detail="DB Bağlantı Hatası")
 
-# --- Tabloları Kur (Startup) ---
+# --- Tabloları Kur ---
 def veritabani_kur():
     retries = 5
     while retries > 0:
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            
             cursor.execute("CREATE TABLE IF NOT EXISTS Kullanicilar (kullanici_id SERIAL PRIMARY KEY, kullanici_adi VARCHAR(50) UNIQUE NOT NULL, sifre VARCHAR(100) NOT NULL, rol VARCHAR(20) NOT NULL);")
             cursor.execute("SELECT * FROM Kullanicilar WHERE kullanici_adi='admin'")
             if not cursor.fetchone(): cursor.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('admin', 'admin123', 'admin')")
             cursor.execute("SELECT * FROM Kullanicilar WHERE kullanici_adi='mudur'")
             if not cursor.fetchone(): cursor.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('mudur', 'mudur123', 'izleyici')")
-
             cursor.execute("CREATE TABLE IF NOT EXISTS Bolumler (bolum_id SERIAL PRIMARY KEY, bolum_adi VARCHAR(100) UNIQUE NOT NULL);")
             cursor.execute("CREATE TABLE IF NOT EXISTS Personel (personel_id SERIAL PRIMARY KEY, ad_soyad VARCHAR(100) NOT NULL);")
             cursor.execute("CREATE TABLE IF NOT EXISTS Urunler (urun_id SERIAL PRIMARY KEY, urun_adi VARCHAR(200) NOT NULL, SKU VARCHAR(50) UNIQUE NOT NULL, birim VARCHAR(20) NOT NULL, tur VARCHAR(20) NOT NULL, guvenlik_stogu INTEGER DEFAULT 0);")
             cursor.execute("CREATE TABLE IF NOT EXISTS StokGiris (giris_id SERIAL PRIMARY KEY, urun_id INTEGER REFERENCES Urunler(urun_id), bolum_id INTEGER REFERENCES Bolumler(bolum_id), miktar REAL NOT NULL, giris_tarihi TIMESTAMP NOT NULL, belge_no VARCHAR(100));")
             cursor.execute("CREATE TABLE IF NOT EXISTS StokCikis (cikis_id SERIAL PRIMARY KEY, urun_id INTEGER REFERENCES Urunler(urun_id), bolum_id INTEGER REFERENCES Bolumler(bolum_id), miktar REAL NOT NULL, cikis_tarihi TIMESTAMP NOT NULL, sevkiyat_no VARCHAR(100), aciklama TEXT);")
             cursor.execute("CREATE TABLE IF NOT EXISTS Zimmetler (zimmet_id SERIAL PRIMARY KEY, urun_id INTEGER REFERENCES Urunler(urun_id), personel_id INTEGER REFERENCES Personel(personel_id), miktar REAL NOT NULL, verilis_tarihi TIMESTAMP NOT NULL);")
-
-            conn.commit(); conn.close()
-            print("DB Hazır."); break
+            conn.commit(); conn.close(); print("DB Hazır."); break
         except Exception as e:
             print(f"DB Bekleniyor... {e}"); retries -= 1; time.sleep(2)
 
@@ -108,14 +104,12 @@ class RaporFiltreModel(BaseModel):
 class SoruModel(BaseModel):
     soru: str
 
-# --- HTML ---
 @app.get("/", response_class=HTMLResponse)
 def ana_sayfa():
     try:
         with open("index.html", "r", encoding="utf-8") as f: return f.read()
     except: return "<h1>index.html yok</h1>"
 
-# --- STOK VERİSİ ALMA ---
 def stok_verisini_al():
     conn = get_db_connection(); cur = conn.cursor()
     sorgu = """
@@ -135,46 +129,56 @@ def stok_verisini_al():
     for s in stoklar: metin += f"- {s['bolum_adi']} deposunda {s['adet']} adet {s['urun_adi']} var.\n"
     metin += "\nZİMMET DURUMU:\n"
     for z in zimmetler: metin += f"- {z['ad_soyad']} kişisinde {z['miktar']} adet {z['urun_adi']} zimmetli.\n"
+    if not stoklar and not zimmetler: metin += "Depo şu an boş görünüyor."
     return metin
 
-# --- AKILLI YAPAY ZEKA ENDPOINT'İ ---
+# --- YENİLENMİŞ AKILLI AI ENDPOINT ---
 @app.post("/ai/sor")
 def yapay_zekaya_sor(model: SoruModel):
     if not GEMINI_API_KEY:
-        return {"cevap": "⚠️ API Anahtarı bulunamadı."}
+        return {"cevap": "⚠️ API Anahtarı eksik."}
     
     try:
+        # 1. Google'a sor: Hangi modellerin var?
+        uygun_modeller = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    uygun_modeller.append(m.name)
+        except Exception as e:
+            return {"cevap": f"API Bağlantı Hatası: Anahtar yanlış olabilir. ({str(e)})"}
+
+        # 2. Model Seçimi (Varsa Flash, yoksa listedeki ilk model)
+        secilen_model = ""
+        # Öncelik Flash'ta
+        for m in uygun_modeller:
+            if "flash" in m:
+                secilen_model = m
+                break
+        
+        # Flash yoksa herhangi bir Pro modelini al
+        if not secilen_model and len(uygun_modeller) > 0:
+            secilen_model = uygun_modeller[0]
+
+        if not secilen_model:
+            return {"cevap": "Hiçbir uygun yapay zeka modeli bulunamadı. (Bölge kısıtlaması olabilir)"}
+
+        # 3. Cevabı Üret
         context_data = stok_verisini_al()
         prompt = f"""
-        Sen bir şantiye depo sorumlusu asistanısın. 
-        Aşağıdaki GÜNCEL STOK VERİSİNE bakarak kullanıcının sorusunu cevapla.
-        Sadece bu verideki bilgilere göre konuş. Veride olmayan bir şey sorulursa 'Bilgim yok' de.
-        Kısa, net ve samimi cevap ver.
-        
-        VERİLER:
+        Sen bir depo asistanısın. Aşağıdaki veriye göre cevap ver:
         {context_data}
-        
-        KULLANICI SORUSU:
-        {model.soru}
+        SORU: {model.soru}
         """
         
-        # --- HİBRİT MODEL SEÇİCİ ---
-        try:
-            # Önce Hızlı ve Güçlü Flash Modelini Dene
-            model_ai = genai.GenerativeModel('gemini-1.5-flash')
-            response = model_ai.generate_content(prompt)
-        except Exception as e_flash:
-            # Eğer Flash hata verirse (404 vs.), Yedek PRO Modelini Devreye Sok
-            print(f"Flash Modeli Hatası: {e_flash}. Pro Modeline geçiliyor...")
-            model_ai = genai.GenerativeModel('gemini-pro')
-            response = model_ai.generate_content(prompt)
-        
+        ai = genai.GenerativeModel(secilen_model)
+        response = ai.generate_content(prompt)
         return {"cevap": response.text}
-        
-    except Exception as e:
-        return {"cevap": f"Üzgünüm, bir bağlantı sorunu oldu. (Hata: {str(e)})"}
 
-# (DİĞER API ENDPOINTLERİ - AYNEN KALIYOR)
+    except Exception as e:
+        return {"cevap": f"Bir hata oluştu: {str(e)}"}
+
+# (API ENDPOINTLERİ - AYNEN KALIYOR)
 @app.post("/giris")
 def giris_yap(b: LoginModel):
     c=get_db_connection();cur=c.cursor();cur.execute("SELECT * FROM Kullanicilar WHERE kullanici_adi=%s AND sifre=%s",(b.kullanici_adi,b.sifre));u=cur.fetchone();c.close()
