@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depo Takip Pro V6.0 (AI Edition)</title>
+    <title>Depo Takip Pro V6.2 (Mobile Edition)</title>
     <style>
         :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --light: #ecf0f1; --ai: #673ab7; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f3; margin: 0; padding: 20px; color: #333; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f3; margin: 0; padding: 10px; color: #333; }
         
         /* GİRİŞ EKRANI */
         #LoginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .login-box { background: white; padding: 40px; border-radius: 12px; width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .login-box { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
         .login-box h2 { color: var(--primary); margin-bottom: 20px; }
 
         /* ANA EKRAN */
         #Dashboard { display: none; }
         
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        h1 { color: var(--primary); border-bottom: 3px solid var(--accent); padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
-        h2 { color: var(--secondary); font-size: 1.2rem; margin-top: 20px; border-left: 5px solid var(--accent); padding-left: 10px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); border-bottom: 3px solid var(--accent); padding-bottom: 10px; margin-top: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; font-size: 1.5rem; }
+        h2 { color: var(--secondary); font-size: 1.1rem; margin-top: 20px; border-left: 5px solid var(--accent); padding-left: 10px; }
         
-        input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; font-size: 16px; /* Mobilde zoom yapmaması için 16px */ }
         input:focus, select:focus { border-color: var(--accent); outline: none; }
         button { background-color: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
         button:hover { background-color: #2980b9; transform: translateY(-2px); }
@@ -33,24 +33,58 @@
         /* GİZLENECEK ALANLAR */
         .admin-only { display: block; }
 
-        /* SEKMELER */
-        .tab { overflow: hidden; background-color: var(--primary); border-radius: 8px 8px 0 0; display: flex; }
-        .tab button { background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 15px 20px; transition: 0.3s; color: white; width: auto; flex-grow: 1; border-radius: 0; margin: 0; }
+        /* SEKMELER (TABS) - MOBİL UYUMLU */
+        .tab { 
+            overflow: hidden; 
+            background-color: var(--primary); 
+            border-radius: 8px 8px 0 0; 
+            display: flex; 
+            flex-wrap: wrap; /* Mobilde alt satıra geçsin */
+        }
+        .tab button { 
+            background-color: inherit; 
+            border: none; 
+            outline: none; 
+            cursor: pointer; 
+            padding: 12px 15px; 
+            transition: 0.3s; 
+            color: white; 
+            flex-grow: 1; 
+            border-radius: 0; 
+            margin: 0; 
+            font-size: 0.9rem;
+            white-space: nowrap; /* Yazılar kırılmasın */
+        }
         .tab button:hover { background-color: var(--secondary); }
         .tab button.active { background-color: var(--accent); }
         
-        /* TABLO */
-        .tabcontent { display: none; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px; animation: fadeEffect 0.5s; background: #fff; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        /* TABLO VE İÇERİK */
+        .tabcontent { display: none; padding: 15px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px; animation: fadeEffect 0.5s; background: #fff; }
+        
+        /* TABLO TASARIMI - YATAY KAYDIRMA */
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; min-width: 600px; /* Mobilde tablo sıkışmasın, kaydırılsın */ }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: var(--primary); color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         .kritik-stok { background-color: #ffcccc !important; color: #a00; font-weight: bold; }
         .search-box { padding: 10px; width: 100%; border: 2px solid var(--accent); margin-bottom: 10px; }
 
         @keyframes fadeEffect { from {opacity: 0;} to {opacity: 1;} }
+        
+        /* FLEX YAPILAR */
         .flex-row { display: flex; gap: 10px; }
         .flex-col { flex: 1; }
+
+        /* --- MOBİL İÇİN ÖZEL KURALLAR (MEDIA QUERIES) --- */
+        @media screen and (max-width: 768px) {
+            .flex-row { flex-direction: column; gap: 0; } /* Yan yana olanları alt alta al */
+            .flex-col { width: 100%; } /* Kutuları tam genişlik yap */
+            .tab button { flex: 1 1 45%; text-align: center; font-size: 0.8rem; padding: 10px 5px; } /* Butonları küçült ve sığdır */
+            h1 { font-size: 1.2rem; flex-direction: column; align-items: flex-start; }
+            .btn-logout { width: 100%; margin-top: 5px; text-align: center; }
+            #yeniBirim { width: 100% !important; } /* Birim kutusunu düzelt */
+        }
     </style>
 </head>
 <body>
@@ -61,35 +95,31 @@
         <input type="text" id="kullaniciAdi" placeholder="Kullanıcı Adı">
         <input type="password" id="sifre" placeholder="Şifre">
         <button onclick="girisYap()">Giriş Yap</button>
-        <p style="font-size: 12px; color: #666; margin-top: 10px;">
-            Demo Hesaplar:<br>Admin: <b>admin / admin123</b><br>Müdür: <b>mudur / mudur123</b>
-        </p>
-    </div>
+        </div>
 </div>
 
 <div id="Dashboard">
     <div class="container">
         <h1>
-            <span>🏭 Depo Yönetim Paneli <span id="viewBadge" class="badge-manager">👁️ Yönetici Modu</span></span>
+            <span>🏭 Depo Yönetim <span id="viewBadge" class="badge-manager">👁️ Yönetici</span></span>
             <button class="btn-logout" onclick="cikisYap()">Çıkış (<span id="aktifKullanici"></span>)</button>
         </h1>
 
         <div class="tab">
-            <button class="tablinks" onclick="openTab(event, 'Tanimlamalar')" id="defaultOpen">🛠️ Tanımlamalar</button>
-            <button class="tablinks" onclick="openTab(event, 'StokIslem')">📦 Stok Giriş/Çıkış</button>
-            <button class="tablinks" onclick="openTab(event, 'TransferZimmet')">🚚 Transfer & Zimmet</button>
-            <button class="tablinks" onclick="openTab(event, 'Raporlar')">📊 Raporlar</button>
-            <button class="tablinks" onclick="openTab(event, 'AiAsistan')" style="background-color: var(--ai);">🤖 Depo AI</button>
+            <button class="tablinks" onclick="openTab(event, 'Tanimlamalar')" id="defaultOpen">🛠️ Tanım</button>
+            <button class="tablinks" onclick="openTab(event, 'StokIslem')">📦 İşlem</button>
+            <button class="tablinks" onclick="openTab(event, 'TransferZimmet')">🚚 Transfer</button>
+            <button class="tablinks" onclick="openTab(event, 'Raporlar')">📊 Rapor</button>
+            <button class="tablinks" onclick="openTab(event, 'AiAsistan')" style="background-color: var(--ai);">🤖 AI</button>
         </div>
 
         <div id="Tanimlamalar" class="tabcontent">
-            <div id="mudurDashboard1" style="display:none; text-align:center; padding: 20px;">
+            <div id="mudurDashboard1" style="display:none; text-align:center; padding: 10px;">
                 <h3>📋 Sistem Kayıtları</h3>
-                <p>Aşağıdaki butonlara tıklayarak mevcut kayıtları inceleyebilirsiniz.</p>
                 <div class="flex-row">
-                     <button style="background:#34495e;" onclick="listeGoster('bolum')">🏢 Bölüm Listesi</button>
-                     <button style="background:#34495e;" onclick="listeGoster('personel')">👷 Personel Listesi</button>
-                     <button style="background:#34495e;" onclick="listeGoster('urun')">📦 Ürün Listesi</button>
+                     <button style="background:#34495e;" onclick="listeGoster('bolum')">🏢 Bölümler</button>
+                     <button style="background:#34495e;" onclick="listeGoster('personel')">👷 Personeller</button>
+                     <button style="background:#34495e;" onclick="listeGoster('urun')">📦 Ürünler</button>
                 </div>
                 <div id="basitListe" style="margin-top:15px; text-align:left; max-height:300px; overflow-y:auto; border:1px solid #ddd; padding:15px; border-radius:5px; background:#f9f9f9;">
                     <i>Görüntülemek istediğiniz listeyi seçiniz...</i>
@@ -99,14 +129,14 @@
             <div class="admin-only">
                 <div class="flex-row">
                     <div class="flex-col">
-                        <h2>Bölüm/Depo Ekle</h2>
+                        <h2>Bölüm Ekle</h2>
                         <input type="text" id="yeniBolumAdi" placeholder="Örn: Kaynak Atölyesi">
-                        <button onclick="bolumEkle()">Bölüm Kaydet</button>
+                        <button onclick="bolumEkle()">Kaydet</button>
                     </div>
                     <div class="flex-col">
                         <h2>Personel Ekle</h2>
                         <input type="text" id="yeniPersonelAdi" placeholder="Örn: Ahmet Yılmaz">
-                        <button onclick="personelEkle()">Personel Kaydet</button>
+                        <button onclick="personelEkle()">Kaydet</button>
                     </div>
                 </div>
                 <hr>
@@ -122,14 +152,14 @@
                         <option value="Demirbaş">Demirbaş</option>
                     </select>
                     <input type="number" id="yeniGuvenlik" placeholder="Güvenlik Stoğu">
-                    <button onclick="urunEkle()">Ürünü Sisteme İşle</button>
+                    <button onclick="urunEkle()">Ürünü İşle</button>
                 </div>
             </div>
         </div>
 
         <div id="StokIslem" class="tabcontent">
             <div class="admin-only">
-                <h2>Mal Kabul veya Tüketim</h2>
+                <h2>Mal Kabul / Tüketim</h2>
                 <label>İşlem Türü:</label>
                 <select id="islemTuru">
                     <option value="giris">Mal Kabul (Giriş)</option>
@@ -141,46 +171,44 @@
                 </div>
                 <input type="number" id="islemMiktar" placeholder="Miktar">
                 <input type="text" id="islemBelge" placeholder="Belge No / Açıklama">
-                <button onclick="stokIslemYap()">İşlemi Onayla</button>
+                <button onclick="stokIslemYap()">Onayla</button>
             </div>
 
-            <div id="mudurDashboard2" style="display:none; text-align:center; padding:40px;">
+            <div id="mudurDashboard2" style="display:none; text-align:center; padding:20px;">
                 <h2 style="color:#7f8c8d;">📦 Stok Operasyonları</h2>
-                <p>Bu ekran depo sorumlusu tarafından veri girişi (Mal Kabul / Sevkiyat) yapılması içindir.</p>
-                <p>Güncel stok hareketlerini <b>"Raporlar"</b> sekmesinden canlı olarak takip edebilirsiniz.</p>
-                <button onclick="openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar')" style="width:50%; margin-top:20px;">📊 Raporlara Git</button>
+                <p>Veri girişi yetkisi sadece Admin hesabındadır.</p>
+                <button onclick="openTab({currentTarget: document.querySelector('.tab button:nth-child(4)')}, 'Raporlar')" style="width:100%; margin-top:10px;">📊 Raporlara Git</button>
             </div>
         </div>
 
         <div id="TransferZimmet" class="tabcontent">
             <div class="admin-only">
                 <div class="flex-row">
-                    <div class="flex-col" style="border-right: 1px solid #ddd; padding-right: 15px;">
-                        <h2 style="color: var(--accent);">🔄 Depolar Arası Transfer</h2>
+                    <div class="flex-col" style="border-right: 1px solid #ddd; padding-right: 15px; border-bottom: 1px solid #ddd; padding-bottom: 15px;">
+                        <h2 style="color: var(--accent);">🔄 Transfer</h2>
                         <select id="trUrun"><option>Ürün Seç...</option></select>
                         <label>Nereden?</label>
-                        <select id="trCikisBolum"><option>Kaynak Depo...</option></select>
+                        <select id="trCikisBolum"><option>Kaynak...</option></select>
                         <label>Nereye?</label>
-                        <select id="trGirisBolum"><option>Hedef Depo...</option></select>
+                        <select id="trGirisBolum"><option>Hedef...</option></select>
                         <input type="number" id="trMiktar" placeholder="Miktar">
                         <button onclick="transferYap()">Transfer Et</button>
                     </div>
                     <div class="flex-col" style="padding-left: 15px;">
-                        <h2 style="color: var(--danger);">👷 Zimmetleme</h2>
+                        <h2 style="color: var(--danger);">👷 Zimmet</h2>
                         <select id="zimUrun"><option>Ürün Seç...</option></select>
                         <select id="zimBolum"><option>Depo Seç...</option></select>
-                        <select id="zimPersonel"><option>Personel Seç...</option></select>
+                        <select id="zimPersonel"><option>Personel...</option></select>
                         <input type="number" id="zimMiktar" value="1" placeholder="Adet">
                         <button class="btn-danger" onclick="zimmetVer()">Zimmetle</button>
                     </div>
                 </div>
             </div>
 
-             <div id="mudurDashboard3" style="display:none; text-align:center; padding:40px;">
-                <h2 style="color:#7f8c8d;">🔄 Transfer ve Zimmet Operasyonları</h2>
-                <p>Bu bölümdeki işlemler yetkili depo personeli tarafından yürütülmektedir.</p>
-                <p>Mevcut zimmet durumlarını incelemek için aşağıdaki butonu kullanabilirsiniz.</p>
-                <button onclick="zimmetRaporuGetir(); openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar')" style="width:50%; margin-top:20px; background-color:var(--secondary);">👷 Zimmet Listesini İncele</button>
+             <div id="mudurDashboard3" style="display:none; text-align:center; padding:20px;">
+                <h2 style="color:#7f8c8d;">Operasyonlar</h2>
+                <p>Transfer ve zimmet işlemleri yetkili personelce yapılır.</p>
+                <button onclick="zimmetRaporuGetir(); openTab({currentTarget: document.querySelector('.tab button:nth-child(4)')}, 'Raporlar')" style="width:100%; margin-top:10px; background-color:var(--secondary);">👷 Zimmet Listesi</button>
             </div>
         </div>
 
@@ -191,31 +219,33 @@
                     <div class="flex-col"><label>Başlangıç:</label><input type="date" id="rapBaslangic"></div>
                     <div class="flex-col"><label>Bitiş:</label><input type="date" id="rapBitis"></div>
                     <div class="flex-col"><label>Depo:</label><select id="rapBolum"><option value="0">Tüm Depolar</option></select></div>
-                    <div class="flex-col" style="display: flex; align-items: flex-end;"><button onclick="hareketRaporuGetir()" style="background-color: var(--primary);">📜 Hareket Dökümü</button></div>
+                    <div class="flex-col" style="display: flex; align-items: flex-end;"><button onclick="hareketRaporuGetir()" style="background-color: var(--primary);">📜 Listele</button></div>
                 </div>
             </div>
             <div class="flex-row">
                 <button onclick="stokRaporuGetir()">📦 Anlık Stok</button>
-                <button onclick="zimmetRaporuGetir()" style="background-color: var(--secondary);">👷 Zimmet Listesi</button>
+                <button onclick="zimmetRaporuGetir()" style="background-color: var(--secondary);">👷 Zimmetler</button>
             </div>
             <input type="text" id="tabloArama" class="search-box" onkeyup="tabloFiltrele()" placeholder="Tabloda ara...">
-            <table id="raporTablosu"><thead></thead><tbody></tbody></table>
+            
+            <div class="table-responsive">
+                <table id="raporTablosu"><thead></thead><tbody></tbody></table>
+            </div>
         </div>
 
         <div id="AiAsistan" class="tabcontent">
-            <div style="text-align: center; padding: 20px;">
-                <h2 style="color: var(--ai);">🤖 Yapay Zeka Depo Asistanı</h2>
-                <p>Depodaki durum hakkında her şeyi bana sorabilirsiniz.</p>
-                <p style="font-size: 0.9em; color: #666;">(Örn: "Elimizde kaç tane matkap var?", "Ahmet Usta'da ne zimmetli?", "Kaynak atölyesi durumu ne?")</p>
+            <div style="text-align: center; padding: 10px;">
+                <h2 style="color: var(--ai);">🤖 AI Asistan</h2>
+                <p>Depo hakkında merak ettiklerini sor.</p>
                 
                 <div style="max-width: 600px; margin: 0 auto;">
-                    <input type="text" id="aiSoru" placeholder="Sorunuzu buraya yazın..." style="padding: 15px; border: 2px solid var(--ai); width: 100%; border-radius: 5px;">
+                    <input type="text" id="aiSoru" placeholder="Soru sor..." style="padding: 15px; border: 2px solid var(--ai); width: 100%; border-radius: 5px;">
                     <br><br>
                     <button onclick="aiSor()" style="background-color: var(--ai); padding: 15px; width: 100%;">🚀 Gönder</button>
                 </div>
 
-                <div id="aiCevapKutusu" style="display:none; margin-top: 20px; padding: 20px; background: #f3e5f5; border-radius: 8px; border-left: 5px solid var(--ai); text-align: left;">
-                    <b style="color: var(--ai);">Gemini Cevaplıyor:</b>
+                <div id="aiCevapKutusu" style="display:none; margin-top: 20px; padding: 15px; background: #f3e5f5; border-radius: 8px; border-left: 5px solid var(--ai); text-align: left;">
+                    <b style="color: var(--ai);">Gemini:</b>
                     <p id="aiCevapText" style="margin-top: 10px; white-space: pre-wrap;">...</p>
                 </div>
             </div>
@@ -251,7 +281,8 @@
                     document.getElementById('mudurDashboard1').style.display = 'block';
                     document.getElementById('mudurDashboard2').style.display = 'block';
                     document.getElementById('mudurDashboard3').style.display = 'block';
-                    openTab({currentTarget: document.querySelector('.tab button:last-child')}, 'Raporlar');
+                    // Müdür girişi yapınca direkt Raporlara git
+                    openTab({currentTarget: document.querySelector('.tab button:nth-child(4)')}, 'Raporlar');
                 } else {
                     document.getElementById("defaultOpen").click();
                 }
@@ -284,7 +315,6 @@
         document.getElementById('basitListe').innerHTML = html;
     }
 
-    // --- YAPAY ZEKA SORGULAMA ---
     async function aiSor() {
         const soru = document.getElementById('aiSoru').value;
         if(!soru) return alert("Lütfen bir soru yazın!");
@@ -293,7 +323,7 @@
         const cevapText = document.getElementById('aiCevapText');
         
         cevapKutu.style.display = 'block';
-        cevapText.innerText = "🤔 Düşünüyorum... Veritabanı inceleniyor...";
+        cevapText.innerText = "🤔 Düşünüyorum...";
         
         try {
             const response = await fetch(`${API_URL}/ai/sor`, {
@@ -304,7 +334,7 @@
             const data = await response.json();
             cevapText.innerText = data.cevap;
         } catch (err) {
-            cevapText.innerText = "Hata oluştu: " + err;
+            cevapText.innerText = "Hata: " + err;
         }
     }
 
