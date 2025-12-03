@@ -30,14 +30,11 @@ app.add_middleware(
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-else:
-    print("UYARI: GEMINI_API_KEY bulunamadı! Yapay zeka çalışmayacak.")
 
 # --- VERİTABANI BAĞLANTISI ---
 def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
-        # Yerel test için fallback (Opsiyonel)
         raise HTTPException(status_code=500, detail="Database URL yok")
     try:
         conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
@@ -54,7 +51,6 @@ def veritabani_kur():
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Tablolar (Değişiklik yok, aynen duruyor)
             cursor.execute("CREATE TABLE IF NOT EXISTS Kullanicilar (kullanici_id SERIAL PRIMARY KEY, kullanici_adi VARCHAR(50) UNIQUE NOT NULL, sifre VARCHAR(100) NOT NULL, rol VARCHAR(20) NOT NULL);")
             cursor.execute("SELECT * FROM Kullanicilar WHERE kullanici_adi='admin'")
             if not cursor.fetchone(): cursor.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('admin', 'admin123', 'admin')")
@@ -109,7 +105,7 @@ class RaporFiltreModel(BaseModel):
     baslangic_tarihi: str
     bitis_tarihi: str
     bolum_id: int = 0
-class SoruModel(BaseModel): # YENİ
+class SoruModel(BaseModel):
     soru: str
 
 # --- HTML ---
@@ -119,10 +115,9 @@ def ana_sayfa():
         with open("index.html", "r", encoding="utf-8") as f: return f.read()
     except: return "<h1>index.html yok</h1>"
 
-# --- YARDIMCI FONKSİYON: GÜNCEL STOK VERİSİNİ METNE ÇEVİR ---
+# --- STOK VERİSİ ALMA ---
 def stok_verisini_al():
     conn = get_db_connection(); cur = conn.cursor()
-    # Kimde ne var, hangi depoda ne var hepsini çekelim
     sorgu = """
     SELECT b.bolum_adi, u.urun_adi, 
            COALESCE(SUM(g.miktar), 0) - COALESCE((SELECT SUM(c.miktar) FROM StokCikis c WHERE c.urun_id = u.urun_id AND c.bolum_id = b.bolum_id), 0) as adet
@@ -132,38 +127,24 @@ def stok_verisini_al():
     GROUP BY b.bolum_id, u.urun_adi, u.urun_id
     HAVING (COALESCE(SUM(g.miktar), 0) - COALESCE((SELECT SUM(c.miktar) FROM StokCikis c WHERE c.urun_id = u.urun_id AND c.bolum_id = b.bolum_id), 0)) > 0
     """
-    cur.execute(sorgu)
-    stoklar = cur.fetchall()
-    
-    # Zimmetleri de çekelim
+    cur.execute(sorgu); stoklar = cur.fetchall()
     cur.execute("SELECT p.ad_soyad, u.urun_adi, z.miktar FROM Zimmetler z JOIN Personel p ON z.personel_id=p.personel_id JOIN Urunler u ON z.urun_id=u.urun_id")
-    zimmetler = cur.fetchall()
-    conn.close()
+    zimmetler = cur.fetchall(); conn.close()
 
-    # Veriyi metne döküyoruz ki Yapay Zeka okuyabilsin
     metin = "ŞU ANKİ DEPO DURUMU:\n"
-    for s in stoklar:
-        metin += f"- {s['bolum_adi']} deposunda {s['adet']} adet {s['urun_adi']} var.\n"
-    
+    for s in stoklar: metin += f"- {s['bolum_adi']} deposunda {s['adet']} adet {s['urun_adi']} var.\n"
     metin += "\nZİMMET DURUMU:\n"
-    for z in zimmetler:
-        metin += f"- {z['ad_soyad']} kişisinde {z['miktar']} adet {z['urun_adi']} zimmetli.\n"
-        
+    for z in zimmetler: metin += f"- {z['ad_soyad']} kişisinde {z['miktar']} adet {z['urun_adi']} zimmetli.\n"
     return metin
 
-# --- API ENDPOINTLERİ ---
-
-# YENİ: YAPAY ZEKA SOHBET ENDPOINT'İ
+# --- AKILLI YAPAY ZEKA ENDPOINT'İ ---
 @app.post("/ai/sor")
 def yapay_zekaya_sor(model: SoruModel):
     if not GEMINI_API_KEY:
-        raise HTTPException(status_code=503, detail="API Key tanımlı değil!")
+        return {"cevap": "⚠️ API Anahtarı bulunamadı."}
     
     try:
-        # 1. Güncel veriyi veritabanından çek
         context_data = stok_verisini_al()
-        
-        # 2. Gemini'ye talimat ver (Prompt Engineering)
         prompt = f"""
         Sen bir şantiye depo sorumlusu asistanısın. 
         Aşağıdaki GÜNCEL STOK VERİSİNE bakarak kullanıcının sorusunu cevapla.
@@ -177,17 +158,23 @@ def yapay_zekaya_sor(model: SoruModel):
         {model.soru}
         """
         
-        # 3. Modele gönder (Flash Model - Hızlı ve Yüksek Limitli)
-        model_ai = genai.GenerativeModel('gemini-1.5-flash')
-        response = model_ai.generate_content(prompt)
+        # --- HİBRİT MODEL SEÇİCİ ---
+        try:
+            # Önce Hızlı ve Güçlü Flash Modelini Dene
+            model_ai = genai.GenerativeModel('gemini-1.5-flash')
+            response = model_ai.generate_content(prompt)
+        except Exception as e_flash:
+            # Eğer Flash hata verirse (404 vs.), Yedek PRO Modelini Devreye Sok
+            print(f"Flash Modeli Hatası: {e_flash}. Pro Modeline geçiliyor...")
+            model_ai = genai.GenerativeModel('gemini-pro')
+            response = model_ai.generate_content(prompt)
         
         return {"cevap": response.text}
         
     except Exception as e:
-        print("AI Hatası:", e)
-        return {"cevap": "Şu an bağlantıda bir sorun var, daha sonra tekrar dener misin?"}
+        return {"cevap": f"Üzgünüm, bir bağlantı sorunu oldu. (Hata: {str(e)})"}
 
-# (Diğer endpointler AYNI - yer kaplamasın diye kısalttım, önceki kodların aynısı)
+# (DİĞER API ENDPOINTLERİ - AYNEN KALIYOR)
 @app.post("/giris")
 def giris_yap(b: LoginModel):
     c=get_db_connection();cur=c.cursor();cur.execute("SELECT * FROM Kullanicilar WHERE kullanici_adi=%s AND sifre=%s",(b.kullanici_adi,b.sifre));u=cur.fetchone();c.close()
