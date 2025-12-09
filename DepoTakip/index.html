@@ -3,210 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depo Takip V9.0 (Net)</title>
+    <title>Depo V10 Enterprise</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #3498db; --danger: #e74c3c; --success: #27ae60; --bg: #f4f6f8; }
-        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 10px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        :root { --p: #2c3e50; --s: #34495e; --a: #3498db; --d: #e74c3c; --g: #27ae60; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
         
-        /* GİRİŞ EKRANI */
-        #LoginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 999; }
-        .login-box { background: white; padding: 30px; border-radius: 8px; text-align: center; width: 300px; }
+        /* GİRİŞ */
+        #Login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--p); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .box { background: white; padding: 40px; border-radius: 10px; width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { background: var(--a); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn-red { background: var(--d); } .btn-green { background: var(--g); }
         
-        /* TABS */
-        .tab { display: flex; flex-wrap: wrap; background: #ddd; margin-bottom: 15px; }
-        .tab button { flex: 1; padding: 15px; border: none; background: none; cursor: pointer; font-weight: bold; }
-        .tab button.active { background: var(--primary); color: white; }
-        .tabcontent { display: none; padding: 10px; }
+        /* PANEL */
+        #Panel { display: none; max-width: 1100px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); overflow: hidden; }
+        header { background: var(--p); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.2rem; }
         
-        /* FORM ELEMANLARI */
-        input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background: var(--accent); color: white; border: none; cursor: pointer; }
+        /* SEKMELER */
+        .tabs { display: flex; background: #ddd; }
+        .tabs button { background: transparent; color: #555; padding: 15px; margin: 0; border-radius: 0; flex: 1; }
+        .tabs button.active { background: white; color: var(--a); border-top: 3px solid var(--a); }
+        .page { display: none; padding: 20px; }
+        .active-page { display: block; }
+        
+        /* LİSTELER */
+        .card { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee; }
         .row { display: flex; gap: 10px; } .col { flex: 1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--s); color: white; }
+        .del-btn { padding: 5px 10px; font-size: 0.8rem; background: var(--d); width: auto; }
         
-        /* TABLOLAR */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: var(--primary); color: white; }
-        .kritik { background: #ffebee; color: #c62828; font-weight: bold; }
-        
-        @media(max-width:600px){ .row{ flex-direction: column; } }
+        /* MOBİL */
+        @media(max-width: 600px) { .row { flex-direction: column; } .tabs { flex-wrap: wrap; } }
     </style>
 </head>
 <body>
 
-<div id="LoginScreen">
-    <div class="login-box">
+<div id="Login">
+    <div class="box">
         <h2>🔒 Giriş</h2>
-        <input type="text" id="kadi" placeholder="Kullanıcı Adı">
-        <input type="password" id="sifre" placeholder="Şifre">
-        <button onclick="giris()">Giriş Yap</button>
+        <input type="text" id="uName" placeholder="Kullanıcı Adı">
+        <input type="password" id="uPass" placeholder="Şifre">
+        <button onclick="login()">Giriş Yap</button>
     </div>
 </div>
 
-<div id="Dashboard" style="display: none;">
-    <div class="container">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>🏭 Depo Yönetim</h2>
-            <button onclick="location.reload()" style="width:auto; background:var(--danger);">Çıkış</button>
-        </div>
+<div id="Panel">
+    <header>
+        <h1>🏭 Depo V10</h1>
+        <button onclick="location.reload()" style="width: auto; padding: 8px 15px; background: var(--d); font-size: 0.8rem;">Çıkış</button>
+    </header>
+    
+    <div class="tabs">
+        <button onclick="tab('pTan')" class="active">🛠️ Tanımlamalar</button>
+        <button onclick="tab('pIsl')">📦 İşlemler</button>
+        <button onclick="tab('pRap')">📊 Raporlar</button>
+        <button onclick="tab('pAI')">🤖 Asistan</button>
+    </div>
 
-        <div class="tab">
-            <button class="tablinks" onclick="openTab(event, 'Tan')" id="defOpen">🛠️ Tanımlamalar</button>
-            <button class="tablinks" onclick="openTab(event, 'Isl')">📦 İşlemler</button>
-            <button class="tablinks" onclick="openTab(event, 'Rap')">📊 Raporlar</button>
-            <button class="tablinks" onclick="openTab(event, 'Ai')">🤖 AI</button>
-        </div>
-
-        <div id="Tan" class="tabcontent">
-            <div class="row">
-                <div class="col"><h3>Bölüm Ekle</h3><input id="tBolum" placeholder="Örn: Ana Depo"><button onclick="ekle('/bolumler/ekle', {bolum_adi: v('tBolum')})">Kaydet</button></div>
-                <div class="col"><h3>Personel Ekle</h3><input id="tPer" placeholder="Örn: Ali Veli"><button onclick="ekle('/personel/ekle', {ad_soyad: v('tPer')})">Kaydet</button></div>
+    <div id="pTan" class="page active-page">
+        <div class="row">
+            <div class="col card">
+                <h3>Bölüm Yönetimi</h3>
+                <input id="tBolum" placeholder="Yeni Bölüm Adı">
+                <button onclick="add('bolumler', {ad: v('tBolum')})">Ekle</button>
+                <div id="listBolum"></div>
             </div>
-            <hr>
-            <h3>Ürün Tanımla</h3>
+            <div class="col card">
+                <h3>Personel Yönetimi</h3>
+                <input id="tPer" placeholder="Ad Soyad">
+                <button onclick="add('personel', {ad_soyad: v('tPer')})">Ekle</button>
+                <div id="listPer"></div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Ürün Tanımla & Liste</h3>
             <div class="row">
                 <input id="tUrun" placeholder="Ürün Adı">
-                <input id="tSku" placeholder="SKU">
-                <input id="tBirim" placeholder="Birim (Adet)">
+                <input id="tSku" placeholder="SKU (Barkod)">
+                <input id="tBirim" placeholder="Birim">
             </div>
             <div class="row">
-                <select id="tTur"><option value="Sarf">Sarf</option><option value="Demirbaş">Demirbaş</option></select>
-                <input id="tGuv" type="number" placeholder="Güvenlik Stoğu">
-                <button onclick="ekle('/urunler/ekle', {urun_adi:v('tUrun'), sku:v('tSku'), birim:v('tBirim'), tur:v('tTur'), guvenlik_stogu:v('tGuv')})">Ürünü Kaydet</button>
+                <select id="tTur"><option value="Sarf">Sarf Malzeme</option><option value="Demirbaş">Demirbaş</option></select>
+                <input type="number" id="tGuv" placeholder="Güvenlik Stoğu">
+                <button onclick="add('urunler', {ad:v('tUrun'), sku:v('tSku'), birim:v('tBirim'), tur:v('tTur'), guvenlik_stogu:v('tGuv')})">Ürünü Kaydet</button>
             </div>
+            <div style="margin-top:10px; max-height:200px; overflow-y:auto;" id="listUrun"></div>
         </div>
+        <div class="card" style="border: 2px dashed #27ae60;">
+            <h3>📥 Excel Yükle</h3>
+            <input type="file" id="xlsFile">
+            <button class="btn-green" onclick="uploadXls()">Yüklemeyi Başlat</button>
+        </div>
+    </div>
 
-        <div id="Isl" class="tabcontent">
-            <h3>Stok Giriş / Çıkış</h3>
-            <select id="iTur"><option value="giris">Mal Kabul (Giriş)</option><option value="cikis">Tüketim (Çıkış)</option></select>
+    <div id="pIsl" class="page">
+        <div class="card">
+            <h3>Hareket İşlemi (Giriş / Çıkış)</h3>
+            <select id="iIslem"><option value="giris">Mal Kabul (Giriş)</option><option value="cikis">Tüketim (Çıkış)</option></select>
             <div class="row">
-                <select id="iBolum"><option>Bölüm Seç...</option></select>
                 <select id="iUrun"><option>Ürün Seç...</option></select>
+                <select id="iBolum"><option>Bölüm Seç...</option></select>
             </div>
-            <input id="iMiktar" type="number" placeholder="Miktar">
-            <input id="iBelge" placeholder="Açıklama / Belge No">
-            <button onclick="islemYap()">İşlemi Onayla</button>
-            
-            <hr>
-            <h3>Zimmet Verme (Demirbaş)</h3>
-            <div class="row">
+            <input type="number" id="iMiktar" placeholder="Miktar">
+            <input id="iAciklama" placeholder="Açıklama / Belge No">
+            <button onclick="doIslem()">Onayla</button>
+        </div>
+        <div class="row">
+            <div class="col card">
+                <h3>Transfer</h3>
+                <select id="trUrun"><option>Ürün...</option></select>
+                <select id="trCikis"><option>Kaynak Depo</option></select>
+                <select id="trGiris"><option>Hedef Depo</option></select>
+                <input type="number" id="trMiktar" placeholder="Miktar">
+                <button onclick="doTransfer()">Transfer Et</button>
+            </div>
+            <div class="col card">
+                <h3>Zimmetleme</h3>
                 <select id="zUrun"><option>Ürün...</option></select>
-                <select id="zPer"><option>Personel...</option></select>
-            </div>
-            <div class="row">
                 <select id="zBolum"><option>Hangi Depodan?</option></select>
-                <input id="zMiktar" type="number" placeholder="Adet" value="1">
+                <select id="zPer"><option>Kime?</option></select>
+                <input type="number" id="zMiktar" placeholder="Adet">
+                <button class="btn-red" onclick="doZimmet()">Zimmet Ver</button>
             </div>
-            <button onclick="zimmetle()" style="background:var(--danger)">Zimmetle</button>
         </div>
+    </div>
 
-        <div id="Rap" class="tabcontent">
-            <button onclick="raporCek()" style="background:var(--success); margin-bottom: 20px;">🔄 Raporları Yenile</button>
-            
-            <h3 style="background:#ddd; padding:5px;">📦 Depo Stok Durumu (Sarf & Demirbaş)</h3>
-            <table>
-                <thead><tr><th>Bölüm</th><th>Ürün (SKU)</th><th>Tür</th><th>Mevcut Miktar</th></tr></thead>
-                <tbody id="tblStok"></tbody>
-            </table>
-
-            <h3 style="background:#ddd; padding:5px; margin-top:30px;">👷 Zimmet Listesi (Kişideki Eşyalar)</h3>
-            <table>
-                <thead><tr><th>Personel</th><th>Ürün</th><th>Miktar</th><th>Tarih</th></tr></thead>
-                <tbody id="tblZimmet"></tbody>
-            </table>
+    <div id="pRap" class="page">
+        <button class="btn-green" onclick="loadReports()">🔄 Raporları Yenile</button>
+        <div class="card">
+            <h3>📦 Güncel Stok Durumu</h3>
+            <table id="tblStok"><thead><tr><th>Bölüm</th><th>Ürün</th><th>SKU</th><th>Miktar</th><th>Durum</th></tr></thead><tbody></tbody></table>
         </div>
+        <div class="card">
+            <h3>👷 Zimmet Listesi</h3>
+            <table id="tblZimmet"><thead><tr><th>Personel</th><th>Ürün</th><th>Miktar</th><th>Tarih</th></tr></thead><tbody></tbody></table>
+        </div>
+    </div>
 
-        <div id="Ai" class="tabcontent">
-            <h3>🤖 AI Asistan</h3>
-            <input id="aiSoru" placeholder="Soru sor...">
-            <button onclick="aiSor()">Gönder</button>
-            <p id="aiCevap" style="background:#eee; padding:10px; border-radius:5px; white-space: pre-wrap;"></p>
+    <div id="pAI" class="page">
+        <div class="card" style="text-align:center;">
+            <h3>🤖 Depo Asistanı</h3>
+            <input id="aiQ" placeholder="Soru sor (Örn: Depoda kaç matkap var?)">
+            <button onclick="askAI()" style="background:#673ab7; margin-top:10px;">Sor</button>
+            <div id="aiRes" style="margin-top:20px; text-align:left; background:#eee; padding:15px; border-radius:5px;">Cevap bekleniyor...</div>
         </div>
     </div>
 </div>
 
 <script>
-    const API = ""; 
+    const API = "/api";
     const v = (id) => document.getElementById(id).value;
     
-    async function giris() {
+    // --- GİRİŞ ---
+    async function login() {
         try {
-            let res = await fetch(API+'/giris', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kullanici_adi:v('kadi'), sifre:v('sifre')})});
+            let res = await fetch(API+'/auth/login', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({kadi:v('uName'), sifre:v('uPass')})
+            });
             if(res.ok) {
-                document.getElementById('LoginScreen').style.display='none';
-                document.getElementById('Dashboard').style.display='block';
-                verileriYukle();
-                document.getElementById('defOpen').click();
-            } else alert("Hatalı!");
-        } catch(e) { alert("Sunucu hatası!"); }
+                document.getElementById('Login').style.display='none';
+                document.getElementById('Panel').style.display='block';
+                init();
+            } else alert("Hatalı Giriş!");
+        } catch(e) { alert("Sunucu Hatası: " + e); }
     }
 
-    async function verileriYukle() {
-        let bol = await (await fetch(API+'/bolumler/listele')).json();
-        let uru = await (await fetch(API+'/urunler/listele')).json();
-        let per = await (await fetch(API+'/personel/listele')).json();
-        
-        fillSel('iBolum', bol, 'bolum_id', 'bolum_adi'); fillSel('zBolum', bol, 'bolum_id', 'bolum_adi');
-        fillSel('iUrun', uru, 'SKU', 'urun_adi'); fillSel('zUrun', uru, 'SKU', 'urun_adi');
-        fillSel('zPer', per, 'personel_id', 'ad_soyad');
-    }
-    
-    function fillSel(id, data, val, txt) {
-        let el = document.getElementById(id); el.innerHTML='<option value="">Seçiniz...</option>';
-        data.forEach(d => el.innerHTML += `<option value="${d[val]}">${d[txt]} (${d[val] || d.SKU})</option>`);
+    // --- YÜKLEMELER ---
+    async function init() {
+        await loadLists();
+        await loadReports();
     }
 
-    async function ekle(url, data) {
-        await fetch(API+url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-        alert("Kaydedildi"); verileriYukle();
+    async function loadLists() {
+        let bol = await (await fetch(API+'/data/bolumler')).json();
+        let per = await (await fetch(API+'/data/personel')).json();
+        let uru = await (await fetch(API+'/data/urunler')).json();
+
+        // Listeleri Doldur (Tanımlamalar Ekranı)
+        renderList('listBolum', bol, 'bolumler', 'ad');
+        renderList('listPer', per, 'personel', 'ad_soyad');
+        renderList('listUrun', uru, 'urunler', 'ad', 'sku');
+
+        // Selectleri Doldur
+        fillSel('iBolum', bol, 'id', 'ad'); fillSel('trCikis', bol, 'id', 'ad'); fillSel('trGiris', bol, 'id', 'ad'); fillSel('zBolum', bol, 'id', 'ad');
+        fillSel('iUrun', uru, 'sku', 'ad'); fillSel('trUrun', uru, 'sku', 'ad'); fillSel('zUrun', uru, 'sku', 'ad');
+        fillSel('zPer', per, 'id', 'ad_soyad');
     }
 
-    async function islemYap() {
-        let data = {sku:v('iUrun'), bolum_id:v('iBolum'), miktar:v('iMiktar'), belge_no:v('iBelge')};
-        let tur = v('iTur');
-        let res = await fetch(API+'/stok/'+tur, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-        if(res.ok) alert("İşlem Başarılı"); else alert("Hata!");
-    }
-
-    async function zimmetle() {
-        let data = {sku:v('zUrun'), personel_id:v('zPer'), bolum_id:v('zBolum'), miktar:v('zMiktar')};
-        let res = await fetch(API+'/zimmet/ver', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-        if(res.ok) alert("Zimmetlendi"); else alert("Hata!");
-    }
-
-    async function raporCek() {
-        // Stok
-        let stok = await (await fetch(API+'/rapor/genel-stok')).json();
-        let t1 = "";
-        stok.forEach(s => {
-            let cls = s.uyari ? 'kritik' : '';
-            t1 += `<tr class="${cls}"><td>${s.bolum}</td><td>${s.urun_adi}</td><td>${s.tur}</td><td>${s.mevcut}</td></tr>`;
+    function renderList(divId, data, apiPath, field, subField=null) {
+        let h = '<table>';
+        data.forEach(item => {
+            h += `<tr><td>${item[field]} ${subField ? ' <small>('+item[subField]+')</small>' : ''}</td>
+                  <td style="text-align:right;"><button class="del-btn" onclick="del('${apiPath}', ${item.id})">Sil</button></td></tr>`;
         });
-        document.getElementById('tblStok').innerHTML = t1 || "<tr><td colspan='4'>Veri yok</td></tr>";
-
-        // Zimmet
-        let zim = await (await fetch(API+'/rapor/zimmetler')).json();
-        let t2 = "";
-        zim.forEach(z => {
-            t2 += `<tr><td>${z.ad_soyad}</td><td>${z.urun_adi}</td><td>${z.miktar}</td><td>${new Date(z.verilis_tarihi).toLocaleDateString()}</td></tr>`;
-        });
-        document.getElementById('tblZimmet').innerHTML = t2 || "<tr><td colspan='4'>Zimmet yok</td></tr>";
+        document.getElementById(divId).innerHTML = h + '</table>';
     }
 
-    async function aiSor() {
-        document.getElementById('aiCevap').innerText = "Düşünüyor...";
-        let res = await fetch(API+'/ai/sor', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({soru:v('aiSoru')})});
+    function fillSel(id, data, valKey, txtKey) {
+        let el = document.getElementById(id); el.innerHTML = '<option value="">Seçiniz...</option>';
+        data.forEach(item => el.innerHTML += `<option value="${item[valKey]}">${item[txtKey]}</option>`);
+    }
+
+    // --- İŞLEMLER (CRUD) ---
+    async function add(path, data) {
+        let res = await fetch(API+'/'+path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        if(res.ok) { alert("Eklendi"); loadLists(); } else alert("Hata!");
+    }
+
+    async function del(path, id) {
+        if(!confirm("Silmek istediğine emin misin?")) return;
+        await fetch(API+'/'+path+'/'+id, {method:'DELETE'});
+        loadLists();
+    }
+
+    async function doIslem() {
+        let type = v('iIslem');
+        let data = {sku:v('iUrun'), bolum_id:parseInt(v('iBolum')), miktar:parseFloat(v('iMiktar')), aciklama:v('iAciklama')};
+        let res = await fetch(API+'/islem/'+type, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        if(res.ok) alert("İşlem Başarılı"); else alert("Hata oluştu");
+    }
+
+    async function doTransfer() {
+        let data = {sku:v('trUrun'), cikis_bolum_id:v('trCikis'), giris_bolum_id:v('trGiris'), miktar:v('trMiktar')};
+        let res = await fetch(API+'/islem/transfer', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        if(res.ok) alert("Transfer Tamam");
+    }
+
+    async function doZimmet() {
+        let data = {sku:v('zUrun'), bolum_id:v('zBolum'), personel_id:v('zPer'), miktar:v('zMiktar')};
+        let res = await fetch(API+'/islem/zimmet', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        if(res.ok) alert("Zimmetlendi");
+    }
+
+    async function uploadXls() {
+        let f = document.getElementById('xlsFile').files[0];
+        if(!f) return alert("Dosya seç!");
+        let fd = new FormData(); fd.append("file", f);
+        alert("Yükleniyor, bekleyin...");
+        let res = await fetch(API+'/admin/excel', {method:'POST', body:fd});
         let d = await res.json();
-        document.getElementById('aiCevap').innerText = d.cevap;
+        alert(d.msg || d.detail); loadLists();
     }
 
-    function openTab(evt, name) {
-        document.querySelectorAll('.tabcontent').forEach(x => x.style.display='none');
-        document.querySelectorAll('.tablinks').forEach(x => x.classList.remove('active'));
-        document.getElementById(name).style.display='block';
-        evt.currentTarget.classList.add('active');
+    // --- RAPOR ---
+    async function loadReports() {
+        let stok = await (await fetch(API+'/rapor/stok')).json();
+        let html = "";
+        stok.forEach(s => {
+            html += `<tr><td>${s.bolum_adi}</td><td>${s.urun_adi}</td><td>${s.sku}</td><td><b>${s.mevcut}</b></td><td>${s.tur}</td></tr>`;
+        });
+        document.querySelector('#tblStok tbody').innerHTML = html || "<tr><td colspan='5'>Veri Yok</td></tr>";
+
+        let zim = await (await fetch(API+'/rapor/zimmet')).json();
+        let h2 = "";
+        zim.forEach(z => {
+            h2 += `<tr><td>${z.ad_soyad}</td><td>${z.urun_adi}</td><td>${z.miktar}</td><td>${new Date(z.tarih).toLocaleDateString()}</td></tr>`;
+        });
+        document.querySelector('#tblZimmet tbody').innerHTML = h2 || "<tr><td colspan='4'>Veri Yok</td></tr>";
+    }
+
+    // --- AI ---
+    async function askAI() {
+        document.getElementById('aiRes').innerText = "Düşünüyor...";
+        let res = await fetch(API+'/ai/sor', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({soru:v('aiQ')})});
+        let d = await res.json();
+        document.getElementById('aiRes').innerText = d.cevap;
+    }
+
+    // --- TAB KONTROL ---
+    function tab(id) {
+        document.querySelectorAll('.page').forEach(p => p.style.display='none');
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).style.display='block';
+        event.currentTarget.classList.add('active');
     }
 </script>
+
 </body>
 </html>
