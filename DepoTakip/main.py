@@ -1,7 +1,7 @@
 import os
 import io
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # Kütüphaneler
 import psycopg2
@@ -18,7 +18,7 @@ import pandas as pd
 load_dotenv()
 
 # Uygulama Başlatma
-app = FastAPI(title="Depo Yönetim Sistemi V11")
+app = FastAPI(title="Depo Yönetim Sistemi Final")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +35,6 @@ if GEMINI_API_KEY:
 
 # --- VERİTABANI BAĞLANTISI ---
 def get_db_connection():
-    """Veritabanına bağlanır ve bağlantı nesnesini döndürür."""
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         print("UYARI: DATABASE_URL bulunamadı.")
@@ -56,7 +55,7 @@ def veritabani_kur():
     try:
         cur = conn.cursor()
         
-        # Tabloları teker teker oluştur
+        # Tablolar
         cur.execute("""
             CREATE TABLE IF NOT EXISTS Kullanicilar (
                 kullanici_id SERIAL PRIMARY KEY, 
@@ -66,19 +65,8 @@ def veritabani_kur():
             );
         """)
         
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS Bolumler (
-                bolum_id SERIAL PRIMARY KEY, 
-                bolum_adi VARCHAR(100) UNIQUE
-            );
-        """)
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS Personel (
-                personel_id SERIAL PRIMARY KEY, 
-                ad_soyad VARCHAR(100)
-            );
-        """)
+        cur.execute("CREATE TABLE IF NOT EXISTS Bolumler (bolum_id SERIAL PRIMARY KEY, bolum_adi VARCHAR(100) UNIQUE);")
+        cur.execute("CREATE TABLE IF NOT EXISTS Personel (personel_id SERIAL PRIMARY KEY, ad_soyad VARCHAR(100));")
         
         cur.execute("""
             CREATE TABLE IF NOT EXISTS Urunler (
@@ -104,12 +92,16 @@ def veritabani_kur():
             );
         """)
         
-        # Varsayılan Kullanıcılar
-        cur.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('admin', 'admin123', 'admin') ON CONFLICT DO NOTHING")
-        cur.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('mudur', 'mudur123', 'izleyici') ON CONFLICT DO NOTHING")
+        # --- KRİTİK DÜZELTME: ŞİFREYİ ZORLA GÜNCELLE ---
+        # Önce kullanıcı yoksa ekle
+        cur.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('admin', 'sky1911', 'admin') ON CONFLICT (kullanici_adi) DO NOTHING")
+        cur.execute("INSERT INTO Kullanicilar (kullanici_adi, sifre, rol) VALUES ('mudur', 'mudur123', 'izleyici') ON CONFLICT (kullanici_adi) DO NOTHING")
+        
+        # ŞİMDİ DE ŞİFREYİ KESİN OLARAK 'sky1911' YAP
+        cur.execute("UPDATE Kullanicilar SET sifre = 'sky1911' WHERE kullanici_adi = 'admin'")
         
         conn.commit()
-        print("✅ Veritabanı tabloları hazır.")
+        print("✅ Veritabanı hazır. Admin şifresi: sky1911 olarak ayarlandı.")
         
     except Exception as e:
         print(f"❌ Kurulum Hatası: {e}")
@@ -159,12 +151,7 @@ class ZimmetReq(BaseModel):
 class SoruReq(BaseModel):
     soru: str
 
-class RaporFiltreModel(BaseModel):
-    baslangic_tarihi: str
-    bitis_tarihi: str
-    bolum_id: int = 0
-
-# --- ANA SAYFA (HATA BURADAYDI - DÜZELTİLDİ) ---
+# --- ARAYÜZ ---
 @app.get("/", response_class=HTMLResponse)
 def index():
     try:
@@ -173,9 +160,8 @@ def index():
     except FileNotFoundError:
         return "<h1>Hata: index.html dosyası bulunamadı!</h1>"
 
-# --- API ENDPOINTLERİ ---
+# --- API ---
 
-# 1. GİRİŞ
 @app.post("/api/auth/login")
 def login(req: LoginReq):
     conn = get_db_connection()
@@ -190,7 +176,6 @@ def login(req: LoginReq):
     finally:
         conn.close()
 
-# 2. VERİ LİSTELEME
 @app.get("/api/data/{tip}")
 def get_data(tip: str):
     conn = get_db_connection()
@@ -208,7 +193,6 @@ def get_data(tip: str):
     finally:
         conn.close()
 
-# 3. EKLEME
 @app.post("/api/bolumler")
 def add_bolum(req: BolumReq):
     conn = get_db_connection()
@@ -249,7 +233,6 @@ def add_urun(req: UrunReq):
     finally:
         conn.close()
 
-# 4. SİLME
 @app.delete("/api/bolumler/{id}")
 def del_bolum(id: int):
     conn = get_db_connection()
@@ -277,7 +260,6 @@ def del_urun(id: int):
     conn.close()
     return {"msg": "ok"}
 
-# 5. İŞLEMLER
 @app.post("/api/islem/giris")
 def giris_yap(req: IslemReq):
     conn = get_db_connection()
@@ -351,7 +333,6 @@ def zimmet_yap(req: ZimmetReq):
     finally:
         conn.close()
 
-# 6. RAPORLAMA
 @app.get("/api/rapor/stok")
 def rapor_stok():
     conn = get_db_connection()
@@ -396,7 +377,6 @@ def rapor_zimmet():
     finally:
         conn.close()
 
-# 7. YAPAY ZEKA
 @app.post("/api/ai/sor")
 def ai(req: SoruReq):
     if not GEMINI_API_KEY:
@@ -423,7 +403,6 @@ def ai(req: SoruReq):
     except Exception as e:
         return {"cevap": f"Hata: {e}"}
 
-# 8. EXCEL IMPORT
 @app.post("/api/admin/excel")
 async def excel(file: UploadFile = File(...)):
     try:
@@ -436,11 +415,11 @@ async def excel(file: UploadFile = File(...)):
         for _, row in df.iterrows():
             try:
                 # Bölüm
-                b_ad = str(row['Bölüm']).strip()
-                cur.execute("INSERT INTO Bolumler (bolum_adi) VALUES (%s) ON CONFLICT (bolum_adi) DO NOTHING RETURNING bolum_id", (b_ad,))
+                bolum_adi = str(row['Bölüm']).strip()
+                cur.execute("INSERT INTO Bolumler (bolum_adi) VALUES (%s) ON CONFLICT (bolum_adi) DO NOTHING RETURNING bolum_id", (bolum_adi,))
                 bid = cur.fetchone()
                 if not bid:
-                    cur.execute("SELECT bolum_id FROM Bolumler WHERE bolum_adi=%s", (b_ad,))
+                    cur.execute("SELECT bolum_id FROM Bolumler WHERE bolum_adi=%s", (bolum_adi,))
                     bid = cur.fetchone()
                 
                 # Ürün
