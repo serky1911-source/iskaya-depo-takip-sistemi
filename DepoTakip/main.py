@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Kurumsal Depo Sistemi V1.0")
+app = FastAPI(title="Kurumsal Depo Sistemi V1.1 Fix")
 
 app.add_middleware(
     CORSMiddleware,
@@ -197,26 +197,37 @@ def get_refs():
     conn.close()
     return {"types": types, "units": units, "depts": depts, "personnel": pers}
 
-# 4.2. ÜRÜN YÖNETİMİ
+# 4.2. ÜRÜN YÖNETİMİ (DÜZELTİLDİ: Detaylı Hata Mesajı)
 @app.post("/api/products")
 def create_product(req: UrunEkleReq):
     conn = get_db(); cur = conn.cursor()
     try:
-        # ID çözümleme
+        # 1. Tip Kontrolü
         cur.execute("SELECT id FROM MaterialTypes WHERE code=%s", (req.type_code,))
-        tid = cur.fetchone()['id']
+        t_row = cur.fetchone()
+        if not t_row: raise Exception(f"Geçersiz Malzeme Tipi: {req.type_code}")
+        tid = t_row['id']
+
+        # 2. Birim Kontrolü
         cur.execute("SELECT id FROM Units WHERE code=%s", (req.unit_code,))
-        uid = cur.fetchone()['id']
+        u_row = cur.fetchone()
+        if not u_row: raise Exception(f"Geçersiz veya Seçilmeyen Birim: {req.unit_code}")
+        uid = u_row['id']
         
+        # 3. Kayıt
         cur.execute("""
             INSERT INTO Products (name, material_type_id, unit_id, min_limit)
             VALUES (%s, %s, %s, %s) RETURNING id
         """, (req.name, tid, uid, req.min_limit))
         conn.commit()
         return {"status": "success", "msg": "Ürün tanımlandı"}
+    
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        raise HTTPException(400, "Bu isimde bir ürün zaten var! (Aynı tipte mükerrer kayıt)")
     except Exception as e:
         conn.rollback()
-        raise HTTPException(400, f"Hata: {str(e)}")
+        raise HTTPException(400, f"Kayıt Hatası: {str(e)}")
     finally: conn.close()
 
 @app.get("/api/products/{type_code}")
