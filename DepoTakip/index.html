@@ -2,79 +2,124 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Depo V12</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <style>body{background:#f4f6f8}.card{box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-bottom:20px}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depo V13 (Stabil)</title>
+    <style>
+        :root { --p: #2c3e50; --s: #34495e; --a: #3498db; --d: #e74c3c; --g: #27ae60; --bg: #ecf0f1; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
+        
+        /* GİRİŞ */
+        #Login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--p); display: flex; justify-content: center; align-items: center; z-index: 999; }
+        .box { background: white; padding: 30px; border-radius: 8px; width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .box input, .box button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .box button { background: var(--a); color: white; border: none; font-weight: bold; cursor: pointer; }
+        
+        /* PANEL */
+        #Panel { display: none; max-width: 1000px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        header { background: var(--p); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* SEKMELER */
+        .tabs { display: flex; background: #ddd; }
+        .tabs button { flex: 1; padding: 15px; border: none; background: none; cursor: pointer; font-weight: bold; color: #555; transition: 0.3s; }
+        .tabs button:hover { background: #ccc; }
+        .tabs button.active { background: white; color: var(--a); border-top: 3px solid var(--a); }
+        .page { display: none; padding: 20px; } .active-page { display: block; }
+        
+        /* İÇERİK */
+        .row { display: flex; gap: 15px; margin-bottom: 15px; } .col { flex: 1; }
+        input, select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { background: var(--a); color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .btn-green { background: var(--g); } .btn-red { background: var(--d); }
+        
+        /* TABLO */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: var(--s); color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .kritik { background: #ffcccc; font-weight: bold; color: #a00; }
+        
+        @media(max-width: 600px) { .row { flex-direction: column; } .tabs { flex-wrap: wrap; } }
+    </style>
 </head>
 <body>
 
-<div id="loginPage" class="container mt-5" style="max-width:400px">
-    <div class="card p-4 text-center">
-        <h3>🔒 Depo Giriş</h3>
-        <input id="uName" class="form-control mb-2" placeholder="admin">
-        <input id="uPass" type="password" class="form-control mb-2" placeholder="sky1911">
-        <button onclick="login()" class="btn btn-primary w-100">Giriş Yap</button>
-        <p id="lMsg" class="text-danger mt-2"></p>
+<div id="Login">
+    <div class="box">
+        <h2>🔒 Giriş</h2>
+        <input id="kadi" placeholder="Kullanıcı Adı">
+        <input id="sifre" type="password" placeholder="Şifre">
+        <button onclick="giris()">Giriş Yap</button>
+        <p id="msg" style="color:red; font-size:0.9rem; margin-top:10px;"></p>
     </div>
 </div>
 
-<div id="mainPage" class="container-fluid p-4" style="display:none">
-    <div class="d-flex justify-content-between mb-3">
-        <h3>🏭 Depo Yönetim</h3>
-        <button onclick="location.reload()" class="btn btn-danger btn-sm">Çıkış</button>
+<div id="Panel">
+    <header><h3>🏭 Depo Yönetim</h3><button onclick="location.reload()" style="width:auto; background:var(--d); padding:8px 15px;">Çıkış</button></header>
+    <div class="tabs">
+        <button onclick="tab('p1')" class="active">🛠️ Tanım</button>
+        <button onclick="tab('p2')">📦 İşlem</button>
+        <button onclick="tab('p3')" onclick="raporla()">📊 Rapor</button>
+        <button onclick="tab('p4')">🤖 AI</button>
     </div>
 
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#p1">🛠️ Tanım</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p2">📦 İşlem</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p3" onclick="loadRep()">📊 Rapor</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p4">🤖 AI</button></li>
-    </ul>
+    <div id="p1" class="page active-page">
+        <div class="row">
+            <div class="col"><h4>Bölüm Ekle</h4><input id="tb" placeholder="Ad"><button onclick="ekle('bolum',{ad:v('tb')})">Kaydet</button></div>
+            <div class="col"><h4>Personel Ekle</h4><input id="tp" placeholder="Ad Soyad"><button onclick="ekle('personel',{ad:v('tp')})">Kaydet</button></div>
+        </div>
+        <hr>
+        <h4>Ürün Tanımla</h4>
+        <div class="row"><input id="ua" placeholder="Ürün Adı"><input id="us" placeholder="SKU"><input id="ub" placeholder="Birim"></div>
+        <div class="row"><select id="ut"><option>Sarf</option><option>Demirbaş</option></select><input id="ug" type="number" placeholder="Güv. Stok"><button onclick="ekle('urun',{ad:v('ua'),sku:v('us'),birim:v('ub'),tur:v('ut'),guvenlik:v('ug')})">Kaydet</button></div>
+        <div style="margin-top:20px; border:2px dashed green; padding:10px;">
+            <h4>📥 Excel Yükle</h4><input type="file" id="xls" style="background:white"><button onclick="excel()" class="btn-green" style="margin-top:5px;">Yükle</button>
+        </div>
+    </div>
 
-    <div class="tab-content">
-        <div class="tab-pane fade show active" id="p1">
+    <div id="p2" class="page">
+        <div class="row">
+            <div class="col" style="border:1px solid #ddd; padding:15px; border-radius:5px;">
+                <h4 style="color:var(--a)">Giriş / Çıkış (Sarf)</h4>
+                <select id="itip"><option value="GIRIS">Mal Kabul (Giriş)</option><option value="CIKIS">Tüketim (Çıkış)</option></select>
+                <div class="row" style="margin:10px 0;"><select id="iu"></select><select id="ib"></select></div>
+                <input id="im" type="number" placeholder="Miktar"><input id="ia" placeholder="Açıklama" style="margin-top:10px;">
+                <button onclick="hareket()" style="margin-top:10px;">İşlemi Onayla</button>
+            </div>
+            <div class="col" style="border:1px solid #ddd; padding:15px; border-radius:5px;">
+                <h4 style="color:var(--d)">Zimmet (Demirbaş)</h4>
+                <select id="zu"></select><select id="zb" style="margin-top:10px;"><option>Hangi Depodan?</option></select>
+                <select id="zp" style="margin-top:10px;"></select><input id="zm" type="number" value="1" style="margin-top:10px;">
+                <button onclick="zimmet()" class="btn-red" style="margin-top:10px;">Zimmetle</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="p3" class="page">
+        <div style="background:#f9f9f9; padding:15px; border:1px solid #ddd; margin-bottom:20px;">
+            <h4>🔎 Tarih Aralığı Seç</h4>
             <div class="row">
-                <div class="col-md-4"><div class="card p-3"><h5>Bölüm</h5><input id="tBol" class="form-control mb-2" placeholder="Ad"><button onclick="add('bolum',{ad:v('tBol')})" class="btn btn-success w-100">Ekle</button></div></div>
-                <div class="col-md-4"><div class="card p-3"><h5>Personel</h5><input id="tPer" class="form-control mb-2" placeholder="Ad Soyad"><button onclick="add('personel',{ad_soyad:v('tPer')})" class="btn btn-success w-100">Ekle</button></div></div>
-                <div class="col-md-4"><div class="card p-3"><h5>Ürün</h5><input id="uAd" class="form-control mb-1" placeholder="Ad"><input id="uSku" class="form-control mb-1" placeholder="SKU"><input id="uBir" class="form-control mb-1" placeholder="Birim"><select id="uTur" class="form-select mb-1"><option>Sarf</option><option>Demirbaş</option></select><input id="uGuv" type="number" class="form-control mb-1" placeholder="Güvenlik"><button onclick="add('urun',{ad:v('uAd'),sku:v('uSku'),birim:v('uBir'),tur:v('uTur'),guvenlik:v('uGuv')})" class="btn btn-primary w-100">Kaydet</button></div></div>
-            </div>
-            <div class="card p-3 border-success"><h5>📥 Excel Yükle</h5><input type="file" id="xls"><button onclick="xls()" class="btn btn-success mt-2">Yükle</button></div>
-        </div>
-
-        <div class="tab-pane fade" id="p2">
-            <div class="row">
-                <div class="col-md-6"><div class="card p-3">
-                    <h5 class="text-primary">Giriş / Çıkış</h5>
-                    <select id="iTip" class="form-select mb-2"><option value="GIRIS">Giriş</option><option value="CIKIS">Çıkış</option></select>
-                    <div class="d-flex gap-2"><select id="iUrun" class="form-select"></select><select id="iBol" class="form-select"></select></div>
-                    <input id="iMik" type="number" class="form-control my-2" placeholder="Miktar">
-                    <button onclick="hareket()" class="btn btn-primary w-100">Onayla</button>
-                </div></div>
-                <div class="col-md-6"><div class="card p-3">
-                    <h5 class="text-danger">Zimmet (Demirbaş)</h5>
-                    <div class="d-flex gap-2 mb-2"><select id="zUrun" class="form-select"></select><select id="zPer" class="form-select"></select></div>
-                    <select id="zBol" class="form-select mb-2"><option>Hangi Depodan?</option></select>
-                    <input id="zMik" type="number" class="form-control mb-2" value="1">
-                    <button onclick="zimmet()" class="btn btn-danger w-100">Zimmetle</button>
-                </div></div>
+                <input type="date" id="t1">
+                <input type="date" id="t2">
+                <button onclick="raporla()" class="btn-green">Raporu Getir</button>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="p3">
-            <button onclick="loadRep()" class="btn btn-secondary mb-3">Yenile</button>
-            <div class="card p-3"><h5>Stok</h5><table class="table table-sm" id="tbStok"><thead><tr><th>Depo</th><th>Ürün</th><th>Miktar</th></tr></thead><tbody></tbody></table></div>
-            <div class="card p-3"><h5>Zimmet</h5><table class="table table-sm" id="tbZim"><thead><tr><th>Personel</th><th>Ürün</th><th>Miktar</th></tr></thead><tbody></tbody></table></div>
-        </div>
+        <h4 style="border-bottom:2px solid var(--a); padding-bottom:5px;">📦 Mevcut Depo Stoğu (Net)</h4>
+        <table id="trStok"><thead><tr><th>Depo</th><th>Ürün</th><th>SKU</th><th>Tür</th><th>Miktar</th><th>Durum</th></tr></thead><tbody></tbody></table>
 
-        <div class="tab-pane fade" id="p4">
-            <div class="card p-4 text-center">
-                <h3>🤖 Asistan</h3>
-                <input id="aiQ" class="form-control mb-2" placeholder="Sor...">
-                <button onclick="ai()" class="btn btn-primary">Sor</button>
-                <div id="aiRes" class="alert alert-secondary mt-3 text-start">...</div>
-            </div>
+        <h4 style="border-bottom:2px solid var(--d); padding-bottom:5px; margin-top:30px;">👷 Zimmet Listesi</h4>
+        <table id="trZim"><thead><tr><th>Personel</th><th>Ürün</th><th>Miktar</th><th>Tarih</th></tr></thead><tbody></tbody></table>
+
+        <h4 style="border-bottom:2px solid #555; padding-bottom:5px; margin-top:30px;">📜 Hareket Dökümü (Seçilen Tarih)</h4>
+        <table id="trHar"><thead><tr><th>Tarih</th><th>İşlem</th><th>Depo</th><th>Ürün</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="p4" class="page">
+        <div style="text-align:center; max-width:600px; margin:0 auto;">
+            <h3>🤖 Depo Asistanı</h3>
+            <input id="aiq" placeholder="Soru sor..."><button onclick="ai()" style="margin-top:10px;">Gönder</button>
+            <div id="air" style="background:#eee; padding:15px; margin-top:20px; text-align:left; border-radius:5px;">...</div>
         </div>
     </div>
 </div>
@@ -82,11 +127,17 @@
 <script>
     const API = "/api"; const v = id => document.getElementById(id).value;
     
-    async function login() {
+    // Tarihleri ayarla (Son 30 gün)
+    const today = new Date().toISOString().split('T')[0];
+    const prev = new Date(); prev.setDate(prev.getDate()-30);
+    document.getElementById('t1').value = prev.toISOString().split('T')[0];
+    document.getElementById('t2').value = today;
+
+    async function giris() {
         try {
-            let res = await fetch(API+'/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kadi:v('uName'), sifre:v('uPass')})});
-            if(res.ok) { document.getElementById('loginPage').style.display='none'; document.getElementById('mainPage').style.display='block'; init(); }
-            else document.getElementById('lMsg').innerText = "Hatalı Giriş!";
+            let r = await fetch(API+'/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kadi:v('kadi'), sifre:v('sifre')})});
+            if(r.ok) { document.getElementById('Login').style.display='none'; document.getElementById('Panel').style.display='block'; init(); }
+            else document.getElementById('msg').innerText = "Hatalı Giriş!";
         } catch(e) { alert("Sunucu Hatası"); }
     }
 
@@ -95,44 +146,74 @@
         let p = await(await fetch(API+'/list/personel')).json();
         let u = await(await fetch(API+'/list/urun')).json();
         
-        fill('iBol', b, 'id', 'ad'); fill('zBol', b, 'id', 'ad');
-        fill('iUrun', u, 'id', 'ad'); fill('zUrun', u, 'id', 'ad');
-        fill('zPer', p, 'id', 'ad_soyad');
+        fill('ib', b); fill('zb', b);
+        fill('iu', u, true); fill('zu', u, true); // True = Ürün
+        fill('zp', p);
     }
     
-    function fill(id, arr, val, txt) { document.getElementById(id).innerHTML = arr.map(x=>`<option value="${x[val]}">${x[txt]}</option>`).join(''); }
+    function fill(id, arr, isUrun=false) {
+        let el = document.getElementById(id); el.innerHTML='<option value="">Seçiniz...</option>';
+        arr.forEach(x => {
+            let val = x.id; let txt = isUrun ? `${x.ad} (${x.sku})` : (x.ad || x.ad_soyad);
+            el.innerHTML += `<option value="${val}">${txt}</option>`;
+        });
+    }
 
-    async function add(path, data) {
+    async function ekle(path, data) {
         let r = await fetch(API+'/ekle/'+path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
         if(r.ok) { alert("Eklendi"); init(); } else alert("Hata");
     }
 
     async function hareket() {
-        let r = await fetch(API+'/hareket', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tip:v('iTip'), urun_id:v('iUrun'), bolum_id:v('iBol'), miktar:v('iMik')})});
-        if(r.ok) alert("Tamam"); else alert((await r.json()).detail);
+        let r = await fetch(API+'/hareket', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tip:v('itip'), urun_id:v('iu'), bolum_id:v('ib'), miktar:v('im'), aciklama:v('ia')})});
+        if(r.ok) { alert("Kaydedildi"); raporla(); } else alert((await r.json()).detail);
     }
 
     async function zimmet() {
-        let r = await fetch(API+'/zimmet', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({urun_id:v('zUrun'), personel_id:v('zPer'), bolum_id:v('zBol'), miktar:v('zMik')})});
-        if(r.ok) alert("Zimmetlendi"); else alert((await r.json()).detail);
+        let r = await fetch(API+'/zimmet', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({urun_id:v('zu'), personel_id:v('zp'), bolum_id:v('zb'), miktar:v('zm')})});
+        if(r.ok) { alert("Zimmetlendi"); raporla(); } else alert((await r.json()).detail); // Hata mesajını göster (Sarf uyarısı buraya düşer)
     }
 
-    async function xls() {
+    async function excel() {
         let fd = new FormData(); fd.append("file", document.getElementById('xls').files[0]);
         let r = await fetch(API+'/admin/excel', {method:'POST', body:fd});
         alert((await r.json()).msg); init();
     }
 
-    async function loadRep() {
-        let d = await(await fetch(API+'/rapor')).json();
-        document.querySelector('#tbStok tbody').innerHTML = d.stok.map(x=>`<tr><td>${x.bolum}</td><td>${x.urun}</td><td>${x.mevcut}</td></tr>`).join('');
-        document.querySelector('#tbZim tbody').innerHTML = d.zimmet.map(x=>`<tr><td>${x.ad_soyad}</td><td>${x.urun}</td><td>${x.miktar}</td></tr>`).join('');
+    async function raporla() {
+        let r = await fetch(API+'/rapor/stok', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({baslangic:v('t1'), bitis:v('t2')})});
+        let d = await r.json();
+        
+        // Stok Tablosu
+        let h1=""; d.stok.forEach(x => {
+            let cls = (x.tur=='Sarf' && x.mevcut<=x.guvenlik_stogu) ? 'kritik' : '';
+            h1+=`<tr class="${cls}"><td>${x.bolum}</td><td>${x.urun}</td><td>${x.sku}</td><td>${x.tur}</td><td>${x.mevcut}</td><td>${cls?'KRİTİK':'Normal'}</td></tr>`
+        });
+        document.querySelector('#trStok tbody').innerHTML = h1 || "<tr><td colspan='6'>Veri Yok</td></tr>";
+
+        // Hareket Tablosu
+        let h2=""; d.hareketler.forEach(x => {
+            h2+=`<tr><td>${new Date(x.tarih).toLocaleString()}</td><td>${x.islem_tipi}</td><td>${x.bolum}</td><td>${x.urun}</td><td>${x.miktar}</td><td>${x.aciklama}</td></tr>`
+        });
+        document.querySelector('#trHar tbody').innerHTML = h2 || "<tr><td colspan='6'>Bu tarihlerde hareket yok</td></tr>";
+
+        // Zimmet Tablosu
+        let z = await(await fetch(API+'/rapor/zimmet')).json();
+        let h3=""; z.forEach(x => h3+=`<tr><td>${x.ad_soyad}</td><td>${x.urun}</td><td>${x.miktar}</td><td>${new Date(x.tarih).toLocaleDateString()}</td></tr>`);
+        document.querySelector('#trZim tbody').innerHTML = h3 || "<tr><td colspan='4'>Zimmet Yok</td></tr>";
     }
 
     async function ai() {
-        document.getElementById('aiRes').innerText = "...";
-        let r = await fetch(API+'/ai', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({soru:v('aiQ')})});
-        document.getElementById('aiRes').innerText = (await r.json()).cevap;
+        document.getElementById('air').innerText="...";
+        let r = await fetch(API+'/ai', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({soru:v('aiq')})});
+        document.getElementById('air').innerText=(await r.json()).cevap;
+    }
+
+    function tab(id) {
+        document.querySelectorAll('.page').forEach(x=>x.style.display='none');
+        document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+        document.getElementById(id).style.display='block';
+        event.currentTarget.classList.add('active');
     }
 </script>
 </body>
