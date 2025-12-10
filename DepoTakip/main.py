@@ -1,21 +1,19 @@
 import os
 import io
-from datetime import datetime
+import datetime
 from typing import List, Optional
-
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import google.generativeai as genai
-import pandas as pd
 
 load_dotenv()
 
-app = FastAPI(title="Depo V16 Final")
+app = FastAPI(title="Kurumsal Depo Sistemi V1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,440 +23,392 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
+# --- KATMAN 1: VERİTABANI BAĞLANTISI ---
 def get_db():
     url = os.environ.get('DATABASE_URL')
     if not url:
-        print("UYARI: DATABASE_URL yok")
+        print("KRİTİK HATA: DATABASE_URL bulunamadı.")
         return None
     try:
         return psycopg2.connect(url, cursor_factory=RealDictCursor)
     except Exception as e:
-        print(f"DB Hatası: {e}")
+        print(f"DB Bağlantı Hatası: {e}")
         return None
 
-# --- BAŞLANGIÇ AYARLARI (VERİLERİ KORUR) ---
-@app.on_event("startup")
-def startup():
+# --- KATMAN 2: VERİTABANI ŞEMASI (MİMARİ) ---
+def schema_init():
     conn = get_db()
-    if not conn:
-        return
-    
+    if not conn: return
     try:
         cur = conn.cursor()
         
-        # 1. TABLOLAR (YOKSA OLUŞTUR)
+        # 1. REFERANS TABLOLAR
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS Kullanicilar (
+            CREATE TABLE IF NOT EXISTS MaterialTypes (
                 id SERIAL PRIMARY KEY,
-                kadi VARCHAR(50) UNIQUE NOT NULL,
-                sifre VARCHAR(100) NOT NULL,
-                rol VARCHAR(20) NOT NULL
-            );
-        """)
-        
-        cur.execute("CREATE TABLE IF NOT EXISTS Bolumler (id SERIAL PRIMARY KEY, ad VARCHAR(100) UNIQUE NOT NULL);")
-        cur.execute("CREATE TABLE IF NOT EXISTS Personel (id SERIAL PRIMARY KEY, ad_soyad VARCHAR(100) NOT NULL);")
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS Urunler (
-                id SERIAL PRIMARY KEY,
-                ad VARCHAR(200) NOT NULL,
-                ozellik VARCHAR(200),
-                sku VARCHAR(50) UNIQUE NOT NULL,
-                birim VARCHAR(20) NOT NULL,
-                tur VARCHAR(20) NOT NULL,
-                guvenlik_stogu INTEGER DEFAULT 0
+                code VARCHAR(20) UNIQUE NOT NULL, -- SARF, DEMIRBAS
+                name VARCHAR(50) NOT NULL
             );
         """)
         
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS Hareketler (
+            CREATE TABLE IF NOT EXISTS Units (
                 id SERIAL PRIMARY KEY,
-                tarih TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                islem_tipi VARCHAR(20) NOT NULL,
-                urun_id INTEGER REFERENCES Urunler(id) ON DELETE CASCADE,
-                bolum_id INTEGER REFERENCES Bolumler(id) ON DELETE SET NULL,
-                personel_id INTEGER REFERENCES Personel(id) ON DELETE SET NULL,
-                miktar REAL NOT NULL,
-                urun_durumu VARCHAR(20) DEFAULT 'SAGLAM',
-                aciklama TEXT
+                code VARCHAR(20) UNIQUE NOT NULL, -- ADET, KG, MT
+                name VARCHAR(50) NOT NULL
             );
         """)
         
-        # 2. SABİT KULLANICILAR (ZORLA GÜNCELLE)
-        # Admin
-        cur.execute("INSERT INTO Kullanicilar (kadi, sifre, rol) VALUES ('admin', 'sky1911', 'admin') ON CONFLICT (kadi) DO UPDATE SET sifre = 'sky1911', rol = 'admin'")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Departments (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE
+            );
+        """)
         
-        # Veysel
-        cur.execute("INSERT INTO Kullanicilar (kadi, sifre, rol) VALUES ('veysel', 'veysel211', 'admin') ON CONFLICT (kadi) DO UPDATE SET sifre = 'veysel211', rol = 'admin'")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Personnel (
+                id SERIAL PRIMARY KEY,
+                full_name VARCHAR(100) NOT NULL,
+                department_id INTEGER REFERENCES Departments(id),
+                is_active BOOLEAN DEFAULT TRUE
+            );
+        """)
+
+        # 2. ÜRÜN KATALOGU
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS Products (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                material_type_id INTEGER REFERENCES MaterialTypes(id),
+                unit_id INTEGER REFERENCES Units(id),
+                min_limit INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE,
+                UNIQUE(name, material_type_id)
+            );
+        """)
+
+        # 3. SARF HAREKETLERİ (Sadece SARF)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS StockMovements (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER REFERENCES Products(id),
+                movement_type VARCHAR(10) NOT NULL, -- IN, OUT
+                quantity REAL NOT NULL,
+                department_id INTEGER REFERENCES Departments(id), -- Çıkış yapılan yer
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                description TEXT
+            );
+        """)
+
+        # 4. DEMİRBAŞ ENVANTERİ (Her ürün tekil bir satırdır)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS DemirbasItems (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER REFERENCES Products(id),
+                demirbas_code VARCHAR(50) UNIQUE NOT NULL, -- DMB-2024-001
+                status VARCHAR(20) DEFAULT 'DEPO', -- DEPO, ZIMMETLI, HURDA
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # 5. ZİMMET GEÇMİŞİ
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS DemirbasAssignments (
+                id SERIAL PRIMARY KEY,
+                demirbas_item_id INTEGER REFERENCES DemirbasItems(id),
+                personel_id INTEGER REFERENCES Personnel(id),
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                returned_at TIMESTAMP,
+                return_condition VARCHAR(50), -- SAGLAM, ARIZALI, HURDA
+                description TEXT
+            );
+        """)
+
+        # --- SEED DATA (SABİT VERİLER) ---
+        # Tipler
+        cur.execute("INSERT INTO MaterialTypes (code, name) VALUES ('SARF', 'Sarf Malzemesi') ON CONFLICT DO NOTHING")
+        cur.execute("INSERT INTO MaterialTypes (code, name) VALUES ('DEMIRBAS', 'Demirbaş') ON CONFLICT DO NOTHING")
         
-        # Mtekin
-        cur.execute("INSERT INTO Kullanicilar (kadi, sifre, rol) VALUES ('mtekin', 'tekinm', 'izleyici') ON CONFLICT (kadi) DO UPDATE SET sifre = 'tekinm', rol = 'izleyici'")
-        
-        # Varsayılan Depolar (Sadece yoksa ekle)
-        cur.execute("INSERT INTO Bolumler (ad) VALUES ('Ana Depo') ON CONFLICT DO NOTHING")
-        cur.execute("INSERT INTO Bolumler (ad) VALUES ('Hurda Deposu') ON CONFLICT DO NOTHING")
-        
+        # Birimler
+        units = [('ADET','Adet'), ('KG','Kilogram'), ('MT','Metre'), ('PK','Paket'), ('LT','Litre')]
+        for c, n in units:
+            cur.execute("INSERT INTO Units (code, name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (c, n))
+            
+        # Varsayılan Bölüm
+        cur.execute("INSERT INTO Departments (name) VALUES ('Ana Depo') ON CONFLICT DO NOTHING")
+        cur.execute("INSERT INTO Departments (name) VALUES ('Hurda Alanı') ON CONFLICT DO NOTHING")
+
         conn.commit()
-        print("✅ Sistem Hazır. Kullanıcılar Güncellendi.")
-        
+        print("✅ Veritabanı Mimarisi Doğrulandı ve Hazır.")
     except Exception as e:
-        print(f"Hata: {e}")
+        print(f"❌ Şema Hatası: {e}")
     finally:
         conn.close()
 
-# --- MODELLER ---
-class LoginReq(BaseModel):
-    kadi: str
-    sifre: str
+@app.on_event("startup")
+def startup_event():
+    schema_init()
 
-class GenelReq(BaseModel):
-    ad: str
+# --- KATMAN 3: DATA TRANSFER OBJECTS (DTO) ---
+class UrunEkleReq(BaseModel):
+    name: str
+    type_code: str # SARF veya DEMIRBAS
+    unit_code: str
+    min_limit: int = 0
 
-class UrunReq(BaseModel):
-    ad: str
-    ozellik: str
-    sku: str
-    birim: str
-    tur: str
-    guvenlik: int
+class StokGirisReq(BaseModel):
+    product_id: int
+    quantity: float # Demirbaş ise adet, Sarf ise miktar
+    description: str = ""
 
-class GirisReq(BaseModel):
-    urun_id: int
-    depo_id: int
-    miktar: float
-    aciklama: str = ""
+class StokCikisReq(BaseModel):
+    product_id: int
+    department_id: int
+    quantity: float
+    description: str = ""
 
-class CikisReq(BaseModel):
-    urun_id: int
-    bolum_id: int
-    miktar: float
-    aciklama: str = ""
-
-class ZimmetReq(BaseModel):
-    urun_id: int
+class ZimmetVerReq(BaseModel):
+    demirbas_item_id: int
     personel_id: int
-    bolum_id: int
-    miktar: float
-    aciklama: str = ""
+    description: str = ""
 
-class IadeReq(BaseModel):
-    urun_id: int
-    personel_id: int
-    depo_id: int
-    miktar: float
-    durum: str
-    aciklama: str = ""
+class ZimmetIadeReq(BaseModel):
+    assignment_id: int
+    condition: str # SAGLAM, ARIZALI, HURDA
+    description: str = ""
 
-class SoruReq(BaseModel):
-    soru: str
+class PersonelEkleReq(BaseModel):
+    full_name: str
+    department_id: int
 
-class RaporFiltre(BaseModel):
-    baslangic: str
-    bitis: str
+# --- KATMAN 4: API ENDPOINTS (Business Logic) ---
+
+# 4.1. REFERANS VERİLERİ
+@app.get("/api/refs")
+def get_refs():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM MaterialTypes"); types = cur.fetchall()
+    cur.execute("SELECT * FROM Units"); units = cur.fetchall()
+    cur.execute("SELECT * FROM Departments"); depts = cur.fetchall()
+    cur.execute("SELECT * FROM Personnel WHERE is_active=TRUE ORDER BY full_name"); pers = cur.fetchall()
+    conn.close()
+    return {"types": types, "units": units, "depts": depts, "personnel": pers}
+
+# 4.2. ÜRÜN YÖNETİMİ
+@app.post("/api/products")
+def create_product(req: UrunEkleReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # ID çözümleme
+        cur.execute("SELECT id FROM MaterialTypes WHERE code=%s", (req.type_code,))
+        tid = cur.fetchone()['id']
+        cur.execute("SELECT id FROM Units WHERE code=%s", (req.unit_code,))
+        uid = cur.fetchone()['id']
+        
+        cur.execute("""
+            INSERT INTO Products (name, material_type_id, unit_id, min_limit)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """, (req.name, tid, uid, req.min_limit))
+        conn.commit()
+        return {"status": "success", "msg": "Ürün tanımlandı"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(400, f"Hata: {str(e)}")
+    finally: conn.close()
+
+@app.get("/api/products/{type_code}")
+def list_products(type_code: str):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT p.id, p.name, u.code as unit, mt.code as type
+        FROM Products p
+        JOIN MaterialTypes mt ON p.material_type_id = mt.id
+        JOIN Units u ON p.unit_id = u.id
+        WHERE mt.code = %s AND p.is_active = TRUE
+        ORDER BY p.name
+    """, (type_code,))
+    res = cur.fetchall(); conn.close()
+    return res
+
+# 4.3. SARF İŞLEMLERİ (GİRİŞ/ÇIKIŞ)
+@app.post("/api/sarf/giris")
+def sarf_giris(req: StokGirisReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # Tip Kontrolü (Business Rule)
+        cur.execute("SELECT mt.code FROM Products p JOIN MaterialTypes mt ON p.material_type_id=mt.id WHERE p.id=%s", (req.product_id,))
+        if cur.fetchone()['code'] != 'SARF': raise Exception("Bu ürün Sarf Malzemesi değil!")
+
+        cur.execute("""
+            INSERT INTO StockMovements (product_id, movement_type, quantity, description)
+            VALUES (%s, 'IN', %s, %s)
+        """, (req.product_id, req.quantity, req.description))
+        conn.commit()
+        return {"status": "success", "msg": "Stok girişi yapıldı"}
+    except Exception as e: raise HTTPException(400, str(e))
+    finally: conn.close()
+
+@app.post("/api/sarf/cikis")
+def sarf_cikis(req: StokCikisReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # Stok Yeterli mi? (Business Rule)
+        cur.execute("""
+            SELECT COALESCE(SUM(CASE WHEN movement_type='IN' THEN quantity ELSE -quantity END), 0) as stock
+            FROM StockMovements WHERE product_id=%s
+        """, (req.product_id,))
+        stock = cur.fetchone()['stock']
+        if stock < req.quantity: raise Exception(f"Yetersiz Stok! Mevcut: {stock}")
+
+        cur.execute("""
+            INSERT INTO StockMovements (product_id, movement_type, quantity, department_id, description)
+            VALUES (%s, 'OUT', %s, %s, %s)
+        """, (req.product_id, req.quantity, req.department_id, req.description))
+        conn.commit()
+        return {"status": "success", "msg": "Çıkış yapıldı"}
+    except Exception as e: raise HTTPException(400, str(e))
+    finally: conn.close()
+
+# 4.4. DEMİRBAŞ İŞLEMLERİ (GİRİŞ/ZİMMET)
+@app.post("/api/demirbas/giris")
+def demirbas_giris(req: StokGirisReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # Tip Kontrolü
+        cur.execute("SELECT mt.code FROM Products p JOIN MaterialTypes mt ON p.material_type_id=mt.id WHERE p.id=%s", (req.product_id,))
+        if cur.fetchone()['code'] != 'DEMIRBAS': raise Exception("Bu ürün Demirbaş değil!")
+
+        # Tekil Kimlik Oluşturma Döngüsü
+        adet = int(req.quantity)
+        for i in range(adet):
+            # Unique Kod Üret: DMB-{YIL}-{Rastgele/Sequence}
+            # Basitlik için timestamp tabanlı
+            code = f"DMB-{datetime.datetime.now().strftime('%Y%m%d')}-{i}-{datetime.datetime.now().microsecond}"
+            cur.execute("""
+                INSERT INTO DemirbasItems (product_id, demirbas_code, status)
+                VALUES (%s, %s, 'DEPO')
+            """, (req.product_id, code))
+        
+        conn.commit()
+        return {"status": "success", "msg": f"{adet} adet demirbaş kimliklendirilerek stoğa alındı."}
+    except Exception as e: raise HTTPException(400, str(e))
+    finally: conn.close()
+
+# Depodaki Demirbaşları Getir
+@app.get("/api/demirbas/list/depo")
+def list_demirbas_depo():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT di.id, di.demirbas_code, p.name 
+        FROM DemirbasItems di
+        JOIN Products p ON di.product_id = p.id
+        WHERE di.status = 'DEPO'
+        ORDER BY p.name
+    """)
+    res = cur.fetchall(); conn.close(); return res
+
+@app.post("/api/zimmet/ver")
+def zimmet_ver(req: ZimmetVerReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # Ürün Depoda mı?
+        cur.execute("SELECT status FROM DemirbasItems WHERE id=%s", (req.demirbas_item_id,))
+        if cur.fetchone()['status'] != 'DEPO': raise Exception("Bu ürün depoda değil, zimmetlenemez!")
+
+        # 1. Demirbaş Statüsünü Güncelle
+        cur.execute("UPDATE DemirbasItems SET status='ZIMMETLI' WHERE id=%s", (req.demirbas_item_id,))
+        
+        # 2. Zimmet Kaydı At
+        cur.execute("""
+            INSERT INTO DemirbasAssignments (demirbas_item_id, personel_id, description)
+            VALUES (%s, %s, %s)
+        """, (req.demirbas_item_id, req.personel_id, req.description))
+        
+        conn.commit()
+        return {"status": "success", "msg": "Zimmetlendi"}
+    except Exception as e: 
+        conn.rollback(); raise HTTPException(400, str(e))
+    finally: conn.close()
+
+# İade Alınacak Zimmetleri Listele
+@app.get("/api/zimmet/active")
+def list_active_zimmet():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT da.id as assignment_id, di.demirbas_code, p.name as product_name, per.full_name, da.assigned_at
+        FROM DemirbasAssignments da
+        JOIN DemirbasItems di ON da.demirbas_item_id = di.id
+        JOIN Products p ON di.product_id = p.id
+        JOIN Personnel per ON da.personel_id = per.id
+        WHERE da.returned_at IS NULL
+    """)
+    res = cur.fetchall(); conn.close(); return res
+
+@app.post("/api/zimmet/iade")
+def zimmet_iade(req: ZimmetIadeReq):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # 1. Assignment'ı kapat
+        cur.execute("""
+            UPDATE DemirbasAssignments 
+            SET returned_at=CURRENT_TIMESTAMP, return_condition=%s, description=%s
+            WHERE id=%s RETURNING demirbas_item_id
+        """, (req.condition, req.description, req.assignment_id))
+        res = cur.fetchone()
+        if not res: raise Exception("Kayıt bulunamadı")
+        item_id = res['demirbas_item_id']
+
+        # 2. Demirbaş Statüsünü Güncelle
+        new_status = 'HURDA' if req.condition == 'HURDA' else 'DEPO'
+        cur.execute("UPDATE DemirbasItems SET status=%s WHERE id=%s", (new_status, item_id))
+        
+        conn.commit()
+        return {"status": "success", "msg": f"İade alındı. Durum: {new_status}"}
+    except Exception as e:
+        conn.rollback(); raise HTTPException(400, str(e))
+    finally: conn.close()
+
+# --- RAPORLAR ---
+@app.get("/api/reports/sarf")
+def report_sarf():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT p.name, u.code as unit,
+        COALESCE(SUM(CASE WHEN sm.movement_type='IN' THEN sm.quantity ELSE -sm.quantity END), 0) as stock
+        FROM Products p
+        JOIN MaterialTypes mt ON p.material_type_id = mt.id
+        JOIN Units u ON p.unit_id = u.id
+        LEFT JOIN StockMovements sm ON p.id = sm.product_id
+        WHERE mt.code = 'SARF'
+        GROUP BY p.id, p.name, u.code
+    """)
+    res = cur.fetchall(); conn.close(); return res
+
+@app.get("/api/reports/demirbas")
+def report_demirbas():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT p.name, di.status, COUNT(*) as count
+        FROM DemirbasItems di
+        JOIN Products p ON di.product_id = p.id
+        GROUP BY p.name, di.status
+        ORDER BY p.name
+    """)
+    res = cur.fetchall(); conn.close(); return res
+
+# --- PERSONEL EKLEME ---
+@app.post("/api/personel")
+def add_personel(req: PersonelEkleReq):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("INSERT INTO Personnel (full_name, department_id) VALUES (%s, %s)", (req.full_name, req.department_id))
+    conn.commit(); conn.close()
+    return {"msg":"OK"}
 
 # --- ARAYÜZ ---
 @app.get("/", response_class=HTMLResponse)
-def index():
-    try:
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    except:
-        return "<h1>Sistem Yükleniyor...</h1>"
-
-# --- API ---
-
-@app.post("/api/login")
-def login(r: LoginReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM Kullanicilar WHERE kadi=%s AND sifre=%s", (r.kadi, r.sifre))
-    user = cur.fetchone()
-    conn.close()
-    
-    if user:
-        return {"ok": True, "rol": user['rol'], "ad": user['kadi']}
-    raise HTTPException(status_code=401, detail="Hatalı Giriş")
-
-@app.get("/api/list/{tip}")
-def get_list(tip: str):
-    conn = get_db()
-    cur = conn.cursor()
-    
-    if tip == 'bolum':
-        cur.execute("SELECT * FROM Bolumler ORDER BY ad")
-    elif tip == 'personel':
-        cur.execute("SELECT * FROM Personel ORDER BY ad_soyad")
-    elif tip == 'urun':
-        cur.execute("SELECT * FROM Urunler ORDER BY ad")
-    elif tip == 'urun_sarf':
-        cur.execute("SELECT * FROM Urunler WHERE tur='SARF' ORDER BY ad")
-    elif tip == 'urun_demirbas':
-        cur.execute("SELECT * FROM Urunler WHERE tur='DEMIRBAS' ORDER BY ad")
-    else:
-        return []
-        
-    res = cur.fetchall()
-    conn.close()
-    return res
-
-@app.post("/api/ekle/bolum")
-def add_b(r: GenelReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("INSERT INTO Bolumler (ad) VALUES (%s)", (r.ad,))
-        conn.commit()
-        return {"msg": "ok"}
-    except:
-        raise HTTPException(status_code=400, detail="Hata")
-    finally:
-        conn.close()
-
-@app.post("/api/ekle/personel")
-def add_p(r: GenelReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("INSERT INTO Personel (ad_soyad) VALUES (%s)", (r.ad,))
-        conn.commit()
-        return {"msg": "ok"}
-    finally:
-        conn.close()
-
-@app.post("/api/ekle/urun")
-def add_u(r: UrunReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("INSERT INTO Urunler (ad,ozellik,sku,birim,tur,guvenlik_stogu) VALUES (%s,%s,%s,%s,%s,%s)", 
-                    (r.ad, r.ozellik, r.sku, r.birim, r.tur, r.guvenlik))
-        conn.commit()
-        return {"msg": "ok"}
-    except:
-        raise HTTPException(status_code=400, detail="SKU Mevcut")
-    finally:
-        conn.close()
-
-# 1. STOK GİRİŞİ
-@app.post("/api/islem/giris")
-def islem_giris(r: GirisReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("INSERT INTO Hareketler (urun_id, bolum_id, islem_tipi, miktar, aciklama) VALUES (%s,%s,'GIRIS',%s,%s)", 
-                    (r.urun_id, r.depo_id, r.miktar, r.aciklama))
-        conn.commit()
-        return {"msg": "Giriş Yapıldı"}
-    finally:
-        conn.close()
-
-# 2. SARF ÇIKIŞI
-@app.post("/api/islem/cikis")
-def islem_cikis(r: CikisReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        # Kontrol
-        cur.execute("SELECT tur FROM Urunler WHERE id=%s", (r.urun_id,))
-        tur = cur.fetchone()
-        if tur and tur['tur'] != 'SARF':
-            raise HTTPException(status_code=400, detail="Demirbaşlar 'Çıkış' yapılamaz, Zimmetlenmelidir!")
-        
-        # Stok
-        cur.execute("""
-            SELECT COALESCE(SUM(CASE WHEN islem_tipi IN ('GIRIS','ZIMMET_AL') THEN miktar ELSE -miktar END), 0) as stok 
-            FROM Hareketler WHERE urun_id=%s AND bolum_id=%s
-        """, (r.urun_id, r.bolum_id))
-        stok = cur.fetchone()['stok']
-        
-        if stok < r.miktar:
-            raise HTTPException(status_code=400, detail=f"Yetersiz Stok! Mevcut: {stok}")
-        
-        cur.execute("INSERT INTO Hareketler (urun_id, bolum_id, islem_tipi, miktar, aciklama) VALUES (%s,%s,'CIKIS',%s,%s)", 
-                    (r.urun_id, r.bolum_id, r.miktar, r.aciklama))
-        conn.commit()
-        return {"msg": "Çıkış Yapıldı"}
-    finally:
-        conn.close()
-
-# 3. ZİMMET VERME
-@app.post("/api/islem/zimmet_ver")
-def islem_zimmet_ver(r: ZimmetReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        # Kontrol
-        cur.execute("SELECT tur FROM Urunler WHERE id=%s", (r.urun_id,))
-        tur = cur.fetchone()
-        if tur and tur['tur'] != 'DEMIRBAS':
-            raise HTTPException(status_code=400, detail="Sarf malzemesi zimmetlenemez!")
-        
-        # Stok
-        cur.execute("""
-            SELECT COALESCE(SUM(CASE WHEN islem_tipi IN ('GIRIS','ZIMMET_AL') THEN miktar ELSE -miktar END), 0) as stok 
-            FROM Hareketler WHERE urun_id=%s AND bolum_id=%s
-        """, (r.urun_id, r.bolum_id))
-        stok = cur.fetchone()['stok']
-        
-        if stok < r.miktar:
-            raise HTTPException(status_code=400, detail="Depoda bu kadar demirbaş yok!")
-        
-        cur.execute("INSERT INTO Hareketler (urun_id, bolum_id, personel_id, islem_tipi, miktar, aciklama) VALUES (%s,%s,%s,'ZIMMET_VER',%s,%s)", 
-                    (r.urun_id, r.bolum_id, r.personel_id, r.miktar, r.aciklama))
-        conn.commit()
-        return {"msg": "Zimmetlendi"}
-    finally:
-        conn.close()
-
-# 4. ZİMMET İADE
-@app.post("/api/islem/zimmet_al")
-def islem_zimmet_al(r: IadeReq):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT COALESCE(SUM(CASE WHEN islem_tipi='ZIMMET_VER' THEN miktar ELSE -miktar END), 0) as zimmet 
-            FROM Hareketler WHERE urun_id=%s AND personel_id=%s
-        """, (r.urun_id, r.personel_id))
-        mevcut = cur.fetchone()['zimmet']
-        
-        if mevcut < r.miktar:
-            raise HTTPException(status_code=400, detail="Personelde bu kadar zimmet yok!")
-        
-        cur.execute("""
-            INSERT INTO Hareketler (urun_id, bolum_id, personel_id, islem_tipi, miktar, urun_durumu, aciklama) 
-            VALUES (%s,%s,%s,'ZIMMET_AL',%s,%s,%s)
-        """, (r.urun_id, r.depo_id, r.personel_id, r.miktar, r.durum, r.aciklama))
-        conn.commit()
-        return {"msg": "İade Alındı"}
-    finally:
-        conn.close()
-
-# --- RAPORLAR ---
-@app.post("/api/rapor/stok")
-def rapor_stok(f: RaporFiltre):
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        # MEVCUT STOK
-        cur.execute("""
-            SELECT b.ad as bolum, u.ad as urun, u.ozellik, u.birim, u.tur,
-            COALESCE(SUM(CASE WHEN h.islem_tipi IN ('GIRIS','ZIMMET_AL') THEN h.miktar ELSE 0 END),0) - 
-            COALESCE(SUM(CASE WHEN h.islem_tipi IN ('CIKIS','ZIMMET_VER') THEN h.miktar ELSE 0 END),0) as mevcut
-            FROM Urunler u 
-            CROSS JOIN Bolumler b 
-            LEFT JOIN Hareketler h ON u.id=h.urun_id AND b.id=h.bolum_id 
-            GROUP BY u.id, b.id, u.ad, u.ozellik, u.birim, u.tur
-            HAVING (COALESCE(SUM(CASE WHEN h.islem_tipi IN ('GIRIS','ZIMMET_AL') THEN h.miktar ELSE 0 END),0) - 
-                    COALESCE(SUM(CASE WHEN h.islem_tipi IN ('CIKIS','ZIMMET_VER') THEN h.miktar ELSE 0 END),0)) > 0
-            ORDER BY u.ad
-        """)
-        stok = cur.fetchall()
-        
-        # HAREKETLER
-        t1 = f"{f.baslangic} 00:00:00"
-        t2 = f"{f.bitis} 23:59:59"
-        cur.execute("""
-            SELECT h.tarih, h.islem_tipi, b.ad as bolum, u.ad as urun, h.miktar, p.ad_soyad, h.urun_durumu, h.aciklama
-            FROM Hareketler h
-            JOIN Urunler u ON h.urun_id = u.id
-            LEFT JOIN Bolumler b ON h.bolum_id = b.id
-            LEFT JOIN Personel p ON h.personel_id = p.id
-            WHERE h.tarih BETWEEN %s AND %s
-            ORDER BY h.tarih DESC
-        """, (t1, t2))
-        hareketler = cur.fetchall()
-        
-        return {"stok": stok, "hareketler": hareketler}
-    finally:
-        conn.close()
-
-@app.get("/api/rapor/zimmet")
-def rapor_zimmet_getir():
-    conn = get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT p.ad_soyad, u.ad as urun, u.ozellik,
-            SUM(CASE WHEN h.islem_tipi='ZIMMET_VER' THEN h.miktar ELSE -h.miktar END) as miktar
-            FROM Hareketler h 
-            JOIN Personel p ON h.personel_id=p.id 
-            JOIN Urunler u ON h.urun_id=u.id 
-            WHERE h.islem_tipi IN ('ZIMMET_VER','ZIMMET_AL')
-            GROUP BY p.ad_soyad, u.ad, u.ozellik
-            HAVING SUM(CASE WHEN h.islem_tipi='ZIMMET_VER' THEN h.miktar ELSE -h.miktar END) > 0
-        """)
-        return cur.fetchall()
-    finally:
-        conn.close()
-
-@app.post("/api/ai")
-def ai(r: SoruReq):
-    if not GEMINI_API_KEY:
-        return {"cevap": "API Key yok"}
-    
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT u.ad, SUM(h.miktar) FROM Hareketler h JOIN Urunler u ON h.urun_id=u.id WHERE h.islem_tipi='GIRIS' GROUP BY u.ad")
-    ozet = cur.fetchall()
-    conn.close()
-    
-    txt = f"STOK ÖZETİ: {ozet}\nSORU: {r.soru}"
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        return {"cevap": model.generate_content(txt).text}
-    except:
-        return {"cevap": "AI Hatası"}
-
-@app.post("/api/admin/excel")
-async def excel(file: UploadFile = File(...)):
-    try:
-        df = pd.read_excel(io.BytesIO(await file.read()))
-        conn = get_db()
-        cur = conn.cursor()
-        c = 0
-        for _, row in df.iterrows():
-            try:
-                # Bölüm
-                cur.execute("INSERT INTO Bolumler (ad) VALUES (%s) ON CONFLICT (ad) DO NOTHING RETURNING id", (str(row['Bölüm']).strip(),))
-                bid_row = cur.fetchone()
-                if bid_row:
-                    bid = bid_row['id']
-                else:
-                    cur.execute("SELECT id FROM Bolumler WHERE ad=%s", (str(row['Bölüm']).strip(),))
-                    bid = cur.fetchone()['id']
-                
-                # Ürün
-                cur.execute("""
-                    INSERT INTO Urunler (ad, ozellik, sku, birim, tur, guvenlik_stogu) 
-                    VALUES (%s, '', %s, %s, %s, %s) 
-                    ON CONFLICT (sku) DO NOTHING RETURNING id
-                """, (str(row['Ürün Adı']), str(row['SKU']), str(row['Birim']), str(row['Tür']), int(row['Güvenlik Stoğu'])))
-                uid_row = cur.fetchone()
-                if uid_row:
-                    uid = uid_row['id']
-                else:
-                    cur.execute("SELECT id FROM Urunler WHERE sku=%s", (str(row['SKU']),))
-                    uid = cur.fetchone()['id']
-                
-                # Giriş Hareketi
-                cur.execute("""
-                    INSERT INTO Hareketler (urun_id, bolum_id, islem_tipi, miktar, aciklama) 
-                    VALUES (%s, %s, 'GIRIS', %s, 'Excel Import')
-                """, (uid, bid, float(row['Miktar'])))
-                c += 1
-            except:
-                pass
-        
-        conn.commit()
-        return {"msg": f"{c} kayıt eklendi"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if conn:
-            conn.close()
+def home():
+    try: return open("index.html", "r", encoding="utf-8").read()
+    except: return "Index.html yüklenemedi."
