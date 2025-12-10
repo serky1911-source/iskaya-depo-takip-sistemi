@@ -6,4 +6,3 @@ python-dotenv
 python-multipart
 pandas
 openpyxl
-jinja2
