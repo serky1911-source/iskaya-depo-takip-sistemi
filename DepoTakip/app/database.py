@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 1. Veritabanı URL Ayarı
+# 1. Veritabanı URL Ayarı (Güvenli)
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./depo.db")
 
 # Render uyumluluğu (postgres:// -> postgresql://)
@@ -17,13 +17,20 @@ if "sqlite" in SQLALCHEMY_DATABASE_URL:
 else:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
+# 3. Oturum Oluşturucu
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# --- İŞTE EKSİK OLAN FONKSİYON ---
+# --- EKSİK OLAN 1: Başlangıçta Tabloları Kurar ---
 def init_db():
-    # Modellerin (tabloların) veritabanına işlenmesi için bu komut şart
-    # Models importunu fonksiyon içine alıyoruz ki döngüsel import hatası olmasın
     import app.models 
     Base.metadata.create_all(bind=engine)
+
+# --- EKSİK OLAN 2: Router'ların Veritabanı Almasını Sağlar ---
+def get_session():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
