@@ -18,7 +18,7 @@ def init_db():
     
     # --- DİKKAT: BU SATIR VERİTABANINI SIFIRLAR ---
     # Tabloları önce siliyoruz ki en güncel haliyle (aktif_mi vb.) tekrar kurulsun.
-    SQLModel.metadata.drop_all(engine) 
+    #SQLModel.metadata.drop_all(engine) 
     # ----------------------------------------------
 
     SQLModel.metadata.create_all(engine)
