@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depo V17 - Kusursuz Takip</title>
+    <style>
+        :root {
+            --primary: #2c3e50; /* Koyu Lacivert */
+            --accent: #3498db;  /* Mavi */
+            --success: #27ae60; /* Yeşil */
+            --danger: #c0392b;  /* Kırmızı */
+            --light: #ecf0f1;   /* Açık Gri */
+            --dark: #2c3e50;
+        }
+        body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: var(--light); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* SIDEBAR */
+        #sidebar { width: 250px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        #sidebar h2 { margin-top: 0; font-size: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 15px; }
+        .menu-item { padding: 12px 15px; cursor: pointer; border-radius: 6px; margin-bottom: 5px; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
+        .menu-item:hover { background: rgba(255,255,255,0.1); }
+        .menu-item.active { background: var(--accent); font-weight: bold; }
+        
+        /* MAIN CONTENT */
+        #main { flex: 1; padding: 30px; overflow-y: auto; }
+        .page { display: none; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* CARDS & FORMS */
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--light); padding-bottom: 10px; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        input, select, button { padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        button { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); }
+        button.btn-green { background: var(--success); }
+        button.btn-red { background: var(--danger); }
+
+        /* TABLES */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: var(--primary); color: white; }
+        tr:hover { background: #f9f9f9; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; color: white; }
+        .bg-sarf { background: #e67e22; }
+        .bg-demirbas { background: #8e44ad; }
+
+        /* TOAST */
+        #toast { position: fixed; bottom: 20px; right: 20px; background: var(--dark); color: white; padding: 15px 25px; border-radius: 5px; display: none; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>🏭 Depo V17</h2>
+        <div class="menu-item active" onclick="showPage('dashboard')">🏠 Genel Durum</div>
+        <div class="menu-item" onclick="showPage('tanimlar')">🛠️ Tanımlamalar</div>
+        <div class="menu-item" onclick="showPage('stok')">📦 Stok İşlemleri</div>
+        <div class="menu-item" onclick="showPage('demirbas')">💻 Demirbaş & Zimmet</div>
+        <div class="menu-item" onclick="showPage('rapor')">📊 Raporlama</div>
+    </div>
+
+    <div id="main">
+        
+        <div id="dashboard" class="page active">
+            <h3>Hoş Geldiniz</h3>
+            <div class="form-grid">
+                <div class="card" style="text-align:center;">
+                    <h1>📦</h1>
+                    <p>Kusursuz Stok Takibi</p>
+                </div>
+                <div class="card" style="text-align:center;">
+                    <h1>💻</h1>
+                    <p>Demirbaş Zimmet Yönetimi</p>
+                </div>
+                <div class="card" style="text-align:center;">
+                    <h1>📊</h1>
+                    <p>Detaylı Raporlama</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="tanimlar" class="page">
+            <div class="card">
+                <h3>➕ Depo & Bölüm Ekle</h3>
+                <div class="form-grid">
+                    <div><input id="t_depo_ad" placeholder="Yeni Depo Adı (Örn: Merkez Depo)"><button onclick="ekle('depo')" style="margin-top:5px">Depo Kaydet</button></div>
+                    <div><input id="t_bolum_ad" placeholder="Yeni Bölüm Adı (Örn: Kaynak Atölyesi)"><button onclick="ekle('bolum')" style="margin-top:5px">Bölüm Kaydet</button></div>
+                    <div><input id="t_per_ad" placeholder="Personel Ad Soyad"><button onclick="ekle('personel')" style="margin-top:5px">Personel Kaydet</button></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📦 Ürün Tanımla</h3>
+                <div class="form-grid">
+                    <input id="u_ad" placeholder="Ürün Adı">
+                    <input id="u_sku" placeholder="SKU / Kod">
+                    <select id="u_tip">
+                        <option value="SARF">SARF MALZEME</option>
+                        <option value="DEMIRBAS">DEMİRBAŞ</option>
+                    </select>
+                    <input id="u_birim" placeholder="Birim (Adet, Kg)">
+                    <input id="u_guv" type="number" placeholder="Güvenlik Stoğu">
+                    <button onclick="urunEkle()" class="btn-green">Ürünü Kaydet</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="stok" class="page">
+            <div class="card" style="border-left: 5px solid var(--success);">
+                <h3>📥 Mal Kabul (Giriş)</h3>
+                <div class="form-grid">
+                    <select id="g_urun"><option>Ürün Seç...</option></select>
+                    <select id="g_depo"><option>Hangi Depoya?</option></select>
+                    <input id="g_miktar" type="number" placeholder="Miktar">
+                    <input id="g_aciklama" placeholder="Açıklama / Belge No">
+                    <button onclick="stokIslem('giris')" class="btn-green">Giriş Yap</button>
+                </div>
+                <small style="color:gray;">* Demirbaş girişi yaparsanız miktar kadar tekil kayıt oluşturulur.</small>
+            </div>
+
+            <div class="card" style="border-left: 5px solid #e67e22;">
+                <h3>🚚 Transfer & Tüketim (Sarf)</h3>
+                <div class="form-grid">
+                    <select id="tr_tip" onchange="toggleTransferUI()">
+                        <option value="transfer">Depolar Arası Transfer</option>
+                        <option value="cikis">Tüketim Çıkışı (Sarf)</option>
+                    </select>
+                    <select id="tr_urun"><option>Sarf Malzeme Seç...</option></select>
+                    <select id="tr_kaynak"><option>Kaynak Depo</option></select>
+                    
+                    <select id="tr_hedef_depo"><option>Hedef Depo</option></select>
+                    <select id="tr_hedef_bolum" style="display:none"><option>Hangi Bölüme?</option></select>
+                    
+                    <input id="tr_miktar" type="number" placeholder="Miktar">
+                    <button onclick="transferYap()" style="background:#e67e22">İşlemi Tamamla</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="demirbas" class="page">
+            <div class="card" style="border-left: 5px solid #8e44ad;">
+                <h3>💻 Zimmet Ver</h3>
+                <p>Sadece "DEPODA" statüsündeki demirbaşlar listelenir.</p>
+                <div class="form-grid">
+                    <select id="z_demirbas"><option>Demirbaş Seç...</option></select>
+                    <select id="z_hedef_tip" onchange="toggleZimmetUI()">
+                        <option value="personel">Personel'e Zimmetle</option>
+                        <option value="bolum">Bölüm'e Zimmetle</option>
+                    </select>
+                    <select id="z_personel"><option>Personel Seç...</option></select>
+                    <select id="z_bolum" style="display:none"><option>Bölüm Seç...</option></select>
+                    <button onclick="zimmetVer()" style="background:#8e44ad">Zimmetle</button>
+                </div>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--danger);">
+                <h3>↩️ Zimmet İade Al</h3>
+                <div class="form-grid">
+                    <input id="zi_id" type="number" placeholder="Demirbaş ID veya Barkod Okut">
+                    <select id="zi_depo"><option>Hangi Depoya Dönecek?</option></select>
+                    <select id="zi_durum">
+                        <option value="DEPODA">Sağlam (Depoya Al)</option>
+                        <option value="ARIZALI">Arızalı</option>
+                        <option value="HURDA">Hurda</option>
+                    </select>
+                    <button onclick="iadeAl()" class="btn-red">İade Al</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="rapor" class="page">
+            <div class="card">
+                <h3>🔎 Hareket Geçmişi & Arama</h3>
+                <div class="form-grid">
+                    <input type="date" id="r_t1">
+                    <input type="date" id="r_t2">
+                    <input id="r_urun_ad" placeholder="Ürün Adı Ara...">
+                    <button onclick="raporGetir()">Sorgula</button>
+                </div>
+                <table>
+                    <thead><tr><th>Tarih</th><th>İşlem</th><th>Ürün</th><th>Miktar</th><th>Kaynak</th><th>Hedef</th><th>Açıklama</th></tr></thead>
+                    <tbody id="tbl_hareket"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>📦 Güncel Stok Durumu</h3>
+                <button onclick="stokGetir()">Stokları Listele</button>
+                <table>
+                    <thead><tr><th>Depo</th><th>Ürün</th><th>Miktar</th><th>Durum</th></tr></thead>
+                    <tbody id="tbl_stok"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="toast">İşlem Başarılı</div>
+
+    <script>
+        // API ADRESİ (Render'da aynı domain olduğu için göreceli yol kullanıyoruz)
+        const API_URL = ""; 
+
+        // Sayfa Yüklenince
+        document.addEventListener("DOMContentLoaded", () => {
+            initData();
+        });
+
+        // Sayfa Geçişleri
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        // Dropdown Doldurma Yardımcısı
+        async function loadSelect(url, domId, textKey='ad') {
+            try {
+                let res = await fetch(API_URL + url);
+                let data = await res.json();
+                let el = document.getElementById(domId);
+                el.innerHTML = '<option value="">Seçiniz...</option>';
+                data.forEach(item => {
+                    let txt = item[textKey];
+                    if(textKey === 'ozel_kod') txt = `${item.ozel_kod} - ${item.seri_no || ''}`; // Demirbaş için özel
+                    if(textKey === 'ad_soyad') txt = item.ad_soyad; // Personel için
+                    el.innerHTML += `<option value="${item.id}">${txt}</option>`;
+                });
+            } catch(e) { console.error("Veri yükleme hatası:", e); }
+        }
+
+        // Başlangıç Verilerini Çek
+        function initData() {
+            // Depolar
+            loadSelect('/tanim/depo', 'g_depo');
+            loadSelect('/tanim/depo', 'tr_kaynak');
+            loadSelect('/tanim/depo', 'tr_hedef_depo');
+            loadSelect('/tanim/depo', 'zi_depo');
+            
+            // Bölümler
+            loadSelect('/tanim/bolum', 'tr_hedef_bolum');
+            loadSelect('/tanim/bolum', 'z_bolum');
+            
+            // Personel
+            loadSelect('/tanim/personel', 'z_personel');
+            
+            // Ürünler
+            loadSelect('/tanim/urun', 'g_urun');
+            loadSelect('/tanim/urun?tip=SARF', 'tr_urun'); // Sadece Sarf
+            
+            // Demirbaş Listesi (Sadece Depoda olanlar zimmetlenebilir)
+            // Not: Backend'de bu filtreyi eklemiştik: demirbas_listele(durum='DEPODA')
+            loadDemirbasSelect();
+        }
+        
+        async function loadDemirbasSelect() {
+            let res = await fetch('/demirbas/list?durum=DEPODA');
+            let data = await res.json();
+            let el = document.getElementById('z_demirbas');
+            el.innerHTML = '<option>Seçiniz...</option>';
+            data.forEach(d => {
+                el.innerHTML += `<option value="${d.id}">${d.ozel_kod} (ID:${d.id})</option>`;
+            });
+        }
+
+        // --- İŞLEM FONKSİYONLARI ---
+
+        // 1. Tanımlama Ekleme (Generic)
+        async function ekle(tur) {
+            let veri = {};
+            if(tur==='depo') veri = {ad: val('t_depo_ad')};
+            if(tur==='bolum') veri = {ad: val('t_bolum_ad')};
+            if(tur==='personel') veri = {ad_soyad: val('t_per_ad')};
+            
+            await postData(`/tanim/${tur}`, veri);
+            initData(); // Listeleri güncelle
+        }
+
+        // 2. Ürün Ekleme
+        async function urunEkle() {
+            let veri = {
+                ad: val('u_ad'),
+                sku: val('u_sku'),
+                tip: val('u_tip'),
+                birim: val('u_birim'),
+                guvenlik_stogu: val('u_guv') || 0
+            };
+            await postData('/tanim/urun', veri);
+            initData();
+        }
+
+        // 3. Stok Girişi
+        async function stokIslem(tip) {
+            let veri = {
+                urun_id: val('g_urun'),
+                depo_id: val('g_depo'),
+                miktar: val('g_miktar'),
+                aciklama: val('g_aciklama')
+            };
+            await postData('/islem/giris', veri);
+        }
+
+        // 4. Transfer / Çıkış
+        async function transferYap() {
+            let tip = val('tr_tip');
+            let url = tip === 'transfer' ? '/islem/transfer' : '/islem/cikis';
+            let veri = {
+                urun_id: val('tr_urun'),
+                cikis_depo_id: val('tr_kaynak'), // Çıkış için 'depo_id' olarak map edilecek backend'de dikkat
+                miktar: val('tr_miktar'),
+                aciklama: "Web İşlem"
+            };
+            
+            if(tip === 'transfer') {
+                veri.giris_depo_id = val('tr_hedef_depo');
+            } else {
+                veri.depo_id = val('tr_kaynak'); // Endpoint modeline göre isim değişimi
+                veri.bolum_id = val('tr_hedef_bolum');
+            }
+            
+            await postData(url, veri);
+        }
+
+        // 5. Zimmet Ver
+        async function zimmetVer() {
+            let hedefTip = val('z_hedef_tip');
+            let veri = {
+                demirbas_id: val('z_demirbas'),
+                aciklama: "Zimmet Atama"
+            };
+            
+            if(hedefTip === 'personel') veri.personel_id = val('z_personel');
+            else veri.bolum_id = val('z_bolum');
+            
+            await postData('/demirbas/zimmetle', veri);
+            loadDemirbasSelect(); // Listeyi yenile
+        }
+
+        // 6. İade Al
+        async function iadeAl() {
+            let veri = {
+                demirbas_id: val('zi_id'),
+                hedef_depo_id: val('zi_depo'),
+                durum: val('zi_durum'),
+                aciklama: "İade"
+            };
+            await postData('/demirbas/iade', veri);
+            loadDemirbasSelect();
+        }
+
+        // 7. Raporlama
+        async function raporGetir() {
+            let veri = {
+                baslangic_tarihi: val('r_t1') ? val('r_t1') : null,
+                bitis_tarihi: val('r_t2') ? val('r_t2') : null,
+                urun_adi: val('r_urun_ad') || null
+            };
+            
+            let res = await fetch('/rapor/gecmis', {
+                method: 'POST', 
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(veri)
+            });
+            let data = await res.json();
+            
+            let html = "";
+            data.forEach(r => {
+                html += `<tr>
+                    <td>${new Date(r.tarih).toLocaleString()}</td>
+                    <td>${r.islem}</td>
+                    <td>${r.urun}</td>
+                    <td>${r.miktar}</td>
+                    <td>${r.kaynak}</td>
+                    <td>${r.hedef}</td>
+                    <td>${r.aciklama}</td>
+                </tr>`;
+            });
+            document.getElementById('tbl_hareket').innerHTML = html || "<tr><td colspan='7'>Kayıt bulunamadı</td></tr>";
+        }
+
+        async function stokGetir() {
+            let res = await fetch('/rapor/stok-durumu', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+            let data = await res.json();
+            let html = "";
+            data.forEach(s => {
+                let color = s.durum_analizi === 'KRİTİK' ? 'red' : 'green';
+                html += `<tr>
+                    <td>${s.depo}</td>
+                    <td>${s.urun} (${s.sku})</td>
+                    <td>${s.miktar} ${s.birim}</td>
+                    <td style="color:${color}; font-weight:bold">${s.durum_analizi}</td>
+                </tr>`;
+            });
+            document.getElementById('tbl_stok').innerHTML = html;
+        }
+
+        // YARDIMCI METODLAR
+        function val(id) { return document.getElementById(id).value; }
+
+        async function postData(url, data) {
+            try {
+                let res = await fetch(API_URL + url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                let json = await res.json();
+                if(res.ok) {
+                    showToast(json.mesaj || "İşlem Başarılı");
+                } else {
+                    alert("HATA: " + (json.detail || "Bir sorun oluştu"));
+                }
+            } catch(e) { alert("Sunucu Hatası"); }
+        }
+
+        function showToast(msg) {
+            let t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display='none', 3000);
+        }
+
+        // UI Toggle
+        function toggleTransferUI() {
+            let tip = val('tr_tip');
+            if(tip === 'transfer') {
+                document.getElementById('tr_hedef_depo').style.display = 'block';
+                document.getElementById('tr_hedef_bolum').style.display = 'none';
+            } else {
+                document.getElementById('tr_hedef_depo').style.display = 'none';
+                document.getElementById('tr_hedef_bolum').style.display = 'block';
+            }
+        }
+        function toggleZimmetUI() {
+            let tip = val('z_hedef_tip');
+            if(tip === 'personel') {
+                document.getElementById('z_personel').style.display = 'block';
+                document.getElementById('z_bolum').style.display = 'none';
+            } else {
+                document.getElementById('z_personel').style.display = 'none';
+                document.getElementById('z_bolum').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
