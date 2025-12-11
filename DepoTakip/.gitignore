@@ -1,0 +1,11 @@
+# Sanal ortam klasörü (Bunu asla yükleme)
+.venv/
+venv/
+env/
+
+# Python derleme dosyaları
+__pycache__/
+*.py[cod]
+
+# İşletim sistemi dosyaları
+.DS_Store
