@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-pydantic
-psycopg2-binary
-python-dotenv
-python-multipart
-pandas
-openpyxl
