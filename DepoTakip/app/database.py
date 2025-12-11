@@ -1,36 +1,48 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlmodel import SQLModel, Session, create_engine
 
-# 1. Veritabanı URL Ayarı (Güvenli)
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./depo.db")
+# 1. VERİTABANI BAĞLANTISI
+# ---------------------------------------------------------
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./depo.db")
 
-# Render uyumluluğu (postgres:// -> postgresql://)
-if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# Render PostgreSQL düzeltmesi (postgres:// -> postgresql://)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# 2. Engine (Motor) Oluşturma
-if "sqlite" in SQLALCHEMY_DATABASE_URL:
+# Motoru (Engine) Oluştur
+# SQLModel create_engine kullanıyoruz (SQLAlchemy wrapper)
+if "sqlite" in DATABASE_URL:
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        DATABASE_URL, 
+        connect_args={"check_same_thread": False} # SQLite için gerekli
     )
 else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(DATABASE_URL)
 
-# 3. Oturum Oluşturucu
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
-
-# --- EKSİK OLAN 1: Başlangıçta Tabloları Kurar ---
+# 2. BAŞLANGIÇ AYARLARI (INIT)
+# ---------------------------------------------------------
 def init_db():
+    """
+    Uygulama başlarken tabloları oluşturur.
+    SQLModel kullandığımız için 'Base.metadata' yerine 
+    'SQLModel.metadata' kullanıyoruz.
+    """
+    # Modelleri import et ki SQLModel hafızasına alsın
     import app.models 
-    Base.metadata.create_all(bind=engine)
+    
+    # Tabloları veritabanında yarat
+    SQLModel.metadata.create_all(engine)
 
-# --- EKSİK OLAN 2: Router'ların Veritabanı Almasını Sağlar ---
+
+# 3. SESSION YÖNETİMİ (DEPENDENCY)
+# ---------------------------------------------------------
 def get_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    """
+    Her istekte yeni bir veritabanı oturumu açar ve kapatır.
+    Router'larda 'db: Session = Depends(get_session)' olarak kullanılır.
+    """
+    # Klasik sessionmaker yerine SQLModel Session kullanıyoruz.
+    # Böylece .exec(), .get() gibi modern komutlar çalışır.
+    with Session(engine) as session:
+        yield session
