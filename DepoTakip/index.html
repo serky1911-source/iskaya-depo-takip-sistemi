@@ -246,15 +246,14 @@
             loadSelect('/tanim/bolum', 'tr_hedef_bolum');
             loadSelect('/tanim/bolum', 'z_bolum');
             
-            // Personel
-            loadSelect('/tanim/personel', 'z_personel');
+            // Personel (GÜNCELLEDİĞİMİZ KISIM)
+            loadSelect('/tanim/personel', 'z_personel', 'ad_soyad');
             
             // Ürünler
             loadSelect('/tanim/urun', 'g_urun');
             loadSelect('/tanim/urun?tip=SARF', 'tr_urun'); // Sadece Sarf
             
-            // Demirbaş Listesi (Sadece Depoda olanlar zimmetlenebilir)
-            // Not: Backend'de bu filtreyi eklemiştik: demirbas_listele(durum='DEPODA')
+            // Demirbaş Listesi
             loadDemirbasSelect();
         }
         
